@@ -18,10 +18,10 @@
     --warning-red: #ef4444;
     /* Soft red - warnings/charging */
 
-    /* Glass Effect - Deeper, richer glass */
-    --glass-bg: rgba(15, 23, 42, 0.85);
-    --glass-border: rgba(148, 163, 184, 0.15);
-    --glass-blur: 12px;
+    /* Glass Effect - More transparent for mobile visibility */
+    --glass-bg: rgba(15, 23, 42, 0.55);
+    --glass-border: rgba(148, 163, 184, 0.1);
+    --glass-blur: 10px;
 
     /* Text - Higher contrast */
     --text-primary: #f8fafc;
@@ -136,17 +136,22 @@ body {
     position: absolute;
     width: clamp(60px, 8vw, 100px);
     height: auto;
-    transform: rotate(90deg);
-    /* Rotate cars 90deg to face right (flipped 180 from original -90) */
+    /* Rotate cars 90deg to face right */
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-    /* Remove transition for smooth, jitter-free movement */
-    will-change: left;
+    /* GPU acceleration for jitter-free iOS/iPad animation */
+    will-change: transform;
+    -webkit-transform: translateZ(0) rotate(90deg);
+    transform: translateZ(0) rotate(90deg);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
 .car img {
     width: 100%;
     height: auto;
     display: block;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }
 
 /* Player car highlight */
@@ -160,21 +165,21 @@ body {
     z-index: 5;
 }
 
-/* Lane positioning - 4 lanes across screen height */
+/* Lane positioning - 4 lanes centered vertically (closer together) */
 .car[data-lane="1"] {
-    top: 15%;
+    top: 25%;
 }
 
 .car[data-lane="2"] {
-    top: 35%;
+    top: 38%;
 }
 
 .car[data-lane="3"] {
-    top: 55%;
+    top: 52%;
 }
 
 .car[data-lane="4"] {
-    top: 75%;
+    top: 65%;
 }
 
 /* ============= HUD Layer ============= */
@@ -671,20 +676,54 @@ body {
     }
 }
 
-/* Landscape mobile optimization */
+/* Landscape mobile optimization - smaller HUD for visibility */
 @media (max-height: 500px) {
+    :root {
+        --hud-font-small: clamp(8px, 1.2vw, 11px);
+        --hud-font-medium: clamp(10px, 2vw, 14px);
+        --hud-font-large: clamp(16px, 3.5vw, 28px);
+        --hud-font-xlarge: clamp(24px, 5vw, 40px);
+        --hud-padding: clamp(4px, 1vw, 8px);
+        --glass-bg: rgba(15, 23, 42, 0.45);
+    }
+
     .center-message {
-        transform: translate(-50%, -50%) scale(0.8);
+        transform: translate(-50%, -50%) scale(0.7);
     }
 
     .start-race-btn {
-        padding: 12px 30px;
-        font-size: 20px;
-        margin-top: 20px;
+        padding: 10px 24px;
+        font-size: 16px;
+        margin-top: 12px;
     }
 
     .hud-layer {
-        padding: calc(var(--hud-padding) * 0.5);
+        padding: calc(var(--hud-padding) * 0.4);
+    }
+
+    .glass-panel {
+        padding: calc(var(--hud-padding) * 0.8);
+        border-radius: 6px;
+    }
+
+    .position-display,
+    .timer-display,
+    .speed-display,
+    .problems-display,
+    .lap-display,
+    .boost-display {
+        transform: scale(0.85);
+        margin: -4px;
+    }
+
+    .speed-bar-container,
+    .boost-charge-bar {
+        height: 4px;
+    }
+
+    .problems-icon,
+    .boost-icon {
+        font-size: var(--hud-font-medium);
     }
 }
 

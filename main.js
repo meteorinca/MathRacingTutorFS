@@ -417,18 +417,23 @@ function updateCarMovement(deltaTime) {
 function updateCarPositions() {
     const cars = gameState.cars;
 
-    // Use Math.round to snap to whole pixels and prevent sub-pixel jittering
+    // Use transform: translate3d for GPU-accelerated, jitter-free animation on iOS/iPad
+    // Round to whole pixels to prevent sub-pixel rendering issues
     if (elements.playerCar) {
-        elements.playerCar.style.left = `${Math.round(cars.player.x)}px`;
+        const x = Math.round(cars.player.x);
+        elements.playerCar.style.transform = `translate3d(${x}px, 0, 0) rotate(90deg)`;
     }
     if (elements.enemyCar1) {
-        elements.enemyCar1.style.left = `${Math.round(cars.enemy1.x)}px`;
+        const x = Math.round(cars.enemy1.x);
+        elements.enemyCar1.style.transform = `translate3d(${x}px, 0, 0) rotate(90deg)`;
     }
     if (elements.enemyCar2) {
-        elements.enemyCar2.style.left = `${Math.round(cars.enemy2.x)}px`;
+        const x = Math.round(cars.enemy2.x);
+        elements.enemyCar2.style.transform = `translate3d(${x}px, 0, 0) rotate(90deg)`;
     }
     if (elements.enemyCar3) {
-        elements.enemyCar3.style.left = `${Math.round(cars.enemy3.x)}px`;
+        const x = Math.round(cars.enemy3.x);
+        elements.enemyCar3.style.transform = `translate3d(${x}px, 0, 0) rotate(90deg)`;
     }
 }
 
