@@ -85,7 +85,15 @@ function cacheElements() {
         // Boost
         boostIcon: document.getElementById('boost-icon'),
         boostStatus: document.getElementById('boost-status'),
-        boostCharge: document.getElementById('boost-charge')
+        boostCharge: document.getElementById('boost-charge'),
+
+        // Cars
+        carWrapper: document.getElementById('car-wrapper'),
+        playerCar: document.getElementById('player-car'),
+        enemyCar1: document.getElementById('enemy-car-1'),
+        enemyCar2: document.getElementById('enemy-car-2'),
+        enemyCar3: document.getElementById('enemy-car-3'),
+        trackImage: document.getElementById('track-image')
     };
 }
 
@@ -262,35 +270,167 @@ function togglePause() {
     console.log('Game paused/resumed');
 }
 
-// ============= Demo Simulation =============
+// ============= Race Simulation =============
 function simulateRaceDemo() {
-    // Simulate speed variations
-    setInterval(() => {
-        const variation = (Math.random() - 0.5) * 20;
-        updateSpeed(gameState.speed + variation);
-    }, 500);
+    // Initialize car positions
+    initializeCarPositions();
 
-    // Simulate position changes occasionally
-    setInterval(() => {
-        if (Math.random() < 0.1) {
-            const newPos = Math.max(1, Math.min(4, gameState.position + (Math.random() < 0.5 ? 1 : -1)));
-            updatePosition(newPos);
-        }
-    }, 3000);
+    // Start the race animation loop
+    gameState.raceStarted = true;
+    lastFrameTime = performance.now();
+    requestAnimationFrame(raceLoop);
+}
 
-    // Simulate problems being solved
-    setInterval(() => {
-        if (Math.random() < 0.3) {
-            updateProblems(gameState.problemsSolved + 1);
-        }
-    }, 5000);
+let lastFrameTime = 0;
 
-    // Simulate lap completion
-    setInterval(() => {
-        if (gameState.currentLap < gameState.totalLaps) {
-            updateLap(gameState.currentLap + 1, gameState.totalLaps);
+function initializeCarPositions() {
+    const startX = 80; // Starting position from left edge (pixels)
+    const cars = gameState.cars;
+
+    // Set initial positions for all cars at the starting line
+    cars.player.x = startX;
+    cars.enemy1.x = startX - 10;
+    cars.enemy2.x = startX + 5;
+    cars.enemy3.x = startX - 15;
+
+    // Randomize base speeds a bit for variety
+    cars.player.baseSpeed = 2.5 + (Math.random() - 0.5) * 0.5;
+    cars.enemy1.baseSpeed = 2.2 + (Math.random() - 0.5) * 0.6;
+    cars.enemy2.baseSpeed = 2.3 + (Math.random() - 0.5) * 0.6;
+    cars.enemy3.baseSpeed = 2.1 + (Math.random() - 0.5) * 0.6;
+
+    // Apply initial positions
+    updateCarPositions();
+}
+
+function raceLoop(currentTime) {
+    if (!gameState.raceStarted) return;
+
+    const deltaTime = (currentTime - lastFrameTime) / 16.67; // Normalize to ~60fps
+    lastFrameTime = currentTime;
+
+    // Update car positions
+    updateCarMovement(deltaTime);
+
+    // Update camera to follow player
+    updateCamera();
+
+    // Update race positions in HUD
+    updateRacePositions();
+
+    // Update speed display based on player speed
+    const playerSpeedMPH = Math.round(gameState.cars.player.speed * 50);
+    updateSpeed(playerSpeedMPH);
+
+    // Continue animation loop
+    gameState.raceAnimationId = requestAnimationFrame(raceLoop);
+}
+
+function updateCarMovement(deltaTime) {
+    const cars = gameState.cars;
+    const viewportWidth = window.innerWidth;
+    const maxX = viewportWidth * 3; // Track is 3 viewport widths
+
+    // Update each car's speed with some randomness for realism
+    Object.keys(cars).forEach(carKey => {
+        const car = cars[carKey];
+
+        // Add slight speed variation (acceleration/deceleration feel)
+        const speedVariation = (Math.random() - 0.5) * 0.3;
+        car.speed = car.baseSpeed + speedVariation;
+
+        // Move car forward
+        car.x += car.speed * deltaTime;
+
+        // Check for finish line - reset race when player finishes
+        if (carKey === 'player' && car.x >= maxX) {
+            resetRace();
+            return;
         }
-    }, 20000);
+    });
+
+    // Apply positions to DOM
+    updateCarPositions();
+}
+
+function updateCarPositions() {
+    const cars = gameState.cars;
+    const carWidth = 80; // Approximate car width
+
+    if (elements.playerCar) {
+        elements.playerCar.style.left = `${cars.player.x}px`;
+    }
+    if (elements.enemyCar1) {
+        elements.enemyCar1.style.left = `${cars.enemy1.x}px`;
+    }
+    if (elements.enemyCar2) {
+        elements.enemyCar2.style.left = `${cars.enemy2.x}px`;
+    }
+    if (elements.enemyCar3) {
+        elements.enemyCar3.style.left = `${cars.enemy3.x}px`;
+    }
+}
+
+function updateCamera() {
+    const playerX = gameState.cars.player.x;
+    const viewportWidth = window.innerWidth;
+    const carWidth = 80;
+
+    // Keep player car roughly 30% from the left of the screen
+    const targetOffset = playerX - (viewportWidth * 0.3);
+
+    // Don't let camera go negative (before start)
+    gameState.cameraOffset = Math.max(0, targetOffset);
+
+    // Apply camera offset as negative transform to the car wrapper
+    if (elements.carWrapper) {
+        elements.carWrapper.style.transform = `translateX(-${gameState.cameraOffset}px)`;
+    }
+
+    // Also move the track background for parallax effect
+    if (elements.trackImage) {
+        const parallaxOffset = gameState.cameraOffset * 0.5; // Slower movement for depth
+        elements.trackImage.style.transform = `translateX(-${parallaxOffset}px)`;
+    }
+}
+
+function updateRacePositions() {
+    const cars = gameState.cars;
+
+    // Sort cars by x position (descending - furthest ahead first)
+    const positions = [
+        { key: 'player', x: cars.player.x },
+        { key: 'enemy1', x: cars.enemy1.x },
+        { key: 'enemy2', x: cars.enemy2.x },
+        { key: 'enemy3', x: cars.enemy3.x }
+    ].sort((a, b) => b.x - a.x);
+
+    // Find player's position
+    const playerPosition = positions.findIndex(p => p.key === 'player') + 1;
+
+    // Update HUD if position changed
+    if (playerPosition !== gameState.position) {
+        updatePosition(playerPosition);
+    }
+}
+
+function resetRace() {
+    // Complete a lap
+    if (gameState.currentLap < gameState.totalLaps) {
+        updateLap(gameState.currentLap + 1, gameState.totalLaps);
+    } else {
+        // Race complete - restart from lap 1
+        gameState.currentLap = 1;
+        updateLap(1, gameState.totalLaps);
+        updateProblems(gameState.problemsSolved + 1); // Add to problems solved for demo
+    }
+
+    // Reset car positions
+    initializeCarPositions();
+
+    // Reset camera
+    gameState.cameraOffset = 0;
+    updateCamera();
 }
 
 // ============= Utility Functions =============

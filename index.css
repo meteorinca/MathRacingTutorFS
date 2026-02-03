@@ -68,16 +68,19 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
+    width: 300vw;
+    /* Extended track for scrolling */
     height: 100%;
     z-index: 1;
+    overflow: hidden;
 }
 
 .track-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
+    object-position: left center;
+    transition: transform 0.05s linear;
 }
 
 /* Subtle vignette overlay */
