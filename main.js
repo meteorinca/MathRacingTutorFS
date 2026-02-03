@@ -15,7 +15,10 @@ const gameState = {
     boostReady: true,
     boostCharge: 100,
     raceStarted: false,
+    raceInMotion: false, // New: cars only move when this is true
     raceTime: 0,
+    displaySpeed: 0, // Smoothed speed for display
+    targetSpeed: 0, // Target speed value
     bestLap: null,
     startTime: null,
 
@@ -55,8 +58,8 @@ function initializeGame() {
         if (loading) loading.classList.add('hidden');
     }, 500);
 
-    // Simulate race in progress for demo
-    simulateRaceDemo();
+    // Initialize race (cars at starting positions, not moving yet)
+    initializeRace();
 }
 
 function cacheElements() {
@@ -93,7 +96,9 @@ function cacheElements() {
         enemyCar1: document.getElementById('enemy-car-1'),
         enemyCar2: document.getElementById('enemy-car-2'),
         enemyCar3: document.getElementById('enemy-car-3'),
-        trackImage: document.getElementById('track-image')
+        trackImage: document.getElementById('track-image'),
+        startRaceBtn: document.getElementById('start-race-btn'),
+        centerMessage: document.getElementById('center-message')
     };
 }
 
@@ -106,6 +111,15 @@ function setupEventListeners() {
 
     // Window resize handling
     window.addEventListener('resize', handleResize);
+
+    // START RACE button
+    if (elements.startRaceBtn) {
+        elements.startRaceBtn.addEventListener('click', startRace);
+        elements.startRaceBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            startRace();
+        });
+    }
 }
 
 // ============= HUD Updates =============
@@ -156,11 +170,19 @@ function updatePosition(newPosition) {
 }
 
 function updateSpeed(speed) {
-    gameState.speed = Math.min(speed, gameState.maxSpeed);
-    const percentage = (gameState.speed / gameState.maxSpeed) * 100;
+    gameState.targetSpeed = Math.min(speed, gameState.maxSpeed);
+}
+
+// Smoothly interpolate displayed speed towards target
+function smoothSpeedUpdate() {
+    const smoothFactor = 0.08; // Lower = smoother/slower transitions
+    gameState.displaySpeed += (gameState.targetSpeed - gameState.displaySpeed) * smoothFactor;
+
+    const displayValue = Math.round(gameState.displaySpeed);
+    const percentage = (gameState.displaySpeed / gameState.maxSpeed) * 100;
 
     if (elements.speedValue) {
-        elements.speedValue.textContent = Math.round(gameState.speed);
+        elements.speedValue.textContent = displayValue;
     }
 
     if (elements.speedBar) {
@@ -211,8 +233,11 @@ function updateBoost(ready, charge) {
 function handleKeyDown(e) {
     switch (e.code) {
         case 'Space':
-            // Activate boost
-            if (gameState.boostReady) {
+        case 'Enter':
+            // Start race if not started, otherwise boost
+            if (!gameState.raceInMotion) {
+                startRace();
+            } else if (gameState.boostReady) {
                 activateBoost();
             }
             e.preventDefault();
@@ -271,14 +296,39 @@ function togglePause() {
 }
 
 // ============= Race Simulation =============
-function simulateRaceDemo() {
-    // Initialize car positions
+function initializeRace() {
+    // Initialize car positions at starting line but don't move yet
     initializeCarPositions();
 
-    // Start the race animation loop
+    // Start the animation loop (but cars won't move until raceInMotion is true)
     gameState.raceStarted = true;
+    gameState.raceInMotion = false;
     lastFrameTime = performance.now();
     requestAnimationFrame(raceLoop);
+}
+
+function startRace() {
+    if (gameState.raceInMotion) return; // Already racing
+
+    // Hide the start button and message
+    if (elements.startRaceBtn) {
+        elements.startRaceBtn.classList.add('hidden');
+    }
+    if (elements.centerMessage) {
+        elements.centerMessage.style.opacity = '0';
+        elements.centerMessage.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => {
+            elements.centerMessage.style.display = 'none';
+        }, 500);
+    }
+
+    // Reset timer
+    gameState.startTime = Date.now();
+
+    // Start the cars moving!
+    gameState.raceInMotion = true;
+
+    console.log('🏁 Race Started!');
 }
 
 let lastFrameTime = 0;
@@ -287,11 +337,11 @@ function initializeCarPositions() {
     const startX = 80; // Starting position from left edge (pixels)
     const cars = gameState.cars;
 
-    // Set initial positions for all cars at the starting line
-    cars.player.x = startX;
+    // Set initial positions - player slightly behind for dramatic effect
+    cars.player.x = startX - 20; // Player starts slightly behind
     cars.enemy1.x = startX - 10;
     cars.enemy2.x = startX + 5;
-    cars.enemy3.x = startX - 15;
+    cars.enemy3.x = startX - 5;
 
     // Randomize base speeds a bit for variety
     cars.player.baseSpeed = 2.5 + (Math.random() - 0.5) * 0.5;
@@ -318,15 +368,26 @@ function raceLoop(currentTime) {
     // Update race positions in HUD
     updateRacePositions();
 
-    // Update speed display based on player speed
-    const playerSpeedMPH = Math.round(gameState.cars.player.speed * 50);
-    updateSpeed(playerSpeedMPH);
+    // Update speed display based on player speed (smoothed)
+    if (gameState.raceInMotion) {
+        const playerSpeedMPH = Math.round(gameState.cars.player.speed * 50);
+        updateSpeed(playerSpeedMPH);
+    } else {
+        updateSpeed(0); // Cars not moving yet
+    }
+    smoothSpeedUpdate(); // Apply smooth interpolation
 
     // Continue animation loop
     gameState.raceAnimationId = requestAnimationFrame(raceLoop);
 }
 
 function updateCarMovement(deltaTime) {
+    // Don't move cars if race hasn't started
+    if (!gameState.raceInMotion) {
+        updateCarPositions();
+        return;
+    }
+
     const cars = gameState.cars;
     const viewportWidth = window.innerWidth;
     const maxX = viewportWidth * 3; // Track is 3 viewport widths
@@ -335,8 +396,8 @@ function updateCarMovement(deltaTime) {
     Object.keys(cars).forEach(carKey => {
         const car = cars[carKey];
 
-        // Add slight speed variation (acceleration/deceleration feel)
-        const speedVariation = (Math.random() - 0.5) * 0.3;
+        // Add slight speed variation (acceleration/deceleration feel) - reduced for smoother motion
+        const speedVariation = (Math.random() - 0.5) * 0.15;
         car.speed = car.baseSpeed + speedVariation;
 
         // Move car forward
