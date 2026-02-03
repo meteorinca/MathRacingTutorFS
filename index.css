@@ -5,22 +5,28 @@
 
 /* ============= CSS Variables ============= */
 :root {
-    /* Racing Theme Colors - Toned Down */
-    --primary-neon: #4ecdc4;
-    --secondary-neon: #c478b2;
-    --accent-gold: #e8b84a;
-    --boost-green: #5cb85c;
-    --warning-red: #d66a6a;
+    /* Racing Theme Colors - Midnight Racing Palette */
+    /* Cohesive palette: Deep indigo base with electric cyan/purple accents */
+    --primary-neon: #00d4ff;
+    /* Electric cyan - main accent */
+    --secondary-neon: #a855f7;
+    /* Vivid purple - secondary accent */
+    --accent-gold: #fbbf24;
+    /* Amber gold - highlights & position */
+    --boost-green: #22c55e;
+    /* Emerald green - boost ready */
+    --warning-red: #ef4444;
+    /* Soft red - warnings/charging */
 
-    /* Glass Effect */
-    --glass-bg: rgba(20, 25, 35, 0.75);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-blur: 10px;
+    /* Glass Effect - Deeper, richer glass */
+    --glass-bg: rgba(15, 23, 42, 0.85);
+    --glass-border: rgba(148, 163, 184, 0.15);
+    --glass-blur: 12px;
 
-    /* Text */
-    --text-primary: #f0f0f0;
-    --text-secondary: rgba(240, 240, 240, 0.75);
-    --text-muted: rgba(240, 240, 240, 0.45);
+    /* Text - Higher contrast */
+    --text-primary: #f8fafc;
+    --text-secondary: rgba(248, 250, 252, 0.75);
+    --text-muted: rgba(148, 163, 184, 0.7);
 
     /* Sizing - Responsive units */
     --hud-padding: clamp(8px, 2vw, 16px);
@@ -29,10 +35,10 @@
     --hud-font-large: clamp(24px, 5vw, 48px);
     --hud-font-xlarge: clamp(36px, 8vw, 72px);
 
-    /* Shadows - Reduced glow intensity */
-    --neon-glow: 0 0 6px var(--primary-neon), 0 0 12px rgba(78, 205, 196, 0.4);
-    --gold-glow: 0 0 6px var(--accent-gold), 0 0 12px rgba(232, 184, 74, 0.3);
-    --subtle-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    /* Shadows - Refined glow effects */
+    --neon-glow: 0 0 8px var(--primary-neon), 0 0 20px rgba(0, 212, 255, 0.35);
+    --gold-glow: 0 0 8px var(--accent-gold), 0 0 16px rgba(251, 191, 36, 0.35);
+    --subtle-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 /* ============= Reset & Base ============= */
@@ -78,8 +84,10 @@ body {
 .track-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: left center;
+    object-fit: fill;
+    /* Use fill to stretch precisely, avoiding zoom/pixelation */
+    image-rendering: auto;
+    /* Smooth scaling for better quality */
     transition: transform 0.05s linear;
 }
 
@@ -91,7 +99,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4) 100%);
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(15, 23, 42, 0.5) 100%);
     pointer-events: none;
 }
 
@@ -121,10 +129,11 @@ body {
     position: absolute;
     width: clamp(60px, 8vw, 100px);
     height: auto;
-    transform: rotate(-90deg);
-    /* Rotate cars to face right */
-    transition: left 0.05s linear;
+    transform: rotate(90deg);
+    /* Rotate cars 90deg to face right (flipped 180 from original -90) */
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+    /* Remove transition for smooth, jitter-free movement */
+    will-change: left;
 }
 
 .car img {
@@ -213,6 +222,10 @@ body {
     color: var(--accent-gold);
     text-shadow: var(--gold-glow);
     font-family: 'Orbitron', monospace;
+    font-variant-numeric: tabular-nums;
+    min-width: 1.2em;
+    display: inline-block;
+    text-align: center;
 }
 
 .position-suffix {
@@ -220,6 +233,9 @@ body {
     color: var(--accent-gold);
     text-transform: uppercase;
     letter-spacing: 2px;
+    font-variant-numeric: tabular-nums;
+    min-width: 2em;
+    display: inline-block;
 }
 
 .position-label {
@@ -251,17 +267,23 @@ body {
     font-family: 'Orbitron', 'Courier New', monospace;
     letter-spacing: 2px;
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    font-variant-numeric: tabular-nums;
+    /* Fixed width to prevent jittering */
+    min-width: 6ch;
+    display: inline-block;
+    text-align: center;
 }
 
 .timer-ms {
-    font-size: var(--hud-font-medium);
-    color: var(--primary-neon);
+    display: none;
+    /* Hidden - milliseconds removed per user request */
 }
 
 .best-lap {
     font-size: var(--hud-font-small);
     color: var(--boost-green);
     margin-top: 4px;
+    font-variant-numeric: tabular-nums;
 }
 
 .best-lap::before {
@@ -288,6 +310,11 @@ body {
     color: var(--primary-neon);
     text-shadow: var(--neon-glow);
     font-family: 'Orbitron', monospace;
+    font-variant-numeric: tabular-nums;
+    /* Fixed width to prevent jittering */
+    min-width: 3ch;
+    display: inline-block;
+    text-align: right;
 }
 
 .speed-unit {
@@ -343,6 +370,10 @@ body {
     font-weight: 700;
     color: var(--boost-green);
     font-family: 'Orbitron', monospace;
+    font-variant-numeric: tabular-nums;
+    min-width: 2ch;
+    display: inline-block;
+    text-align: center;
 }
 
 .problems-label {
@@ -367,15 +398,21 @@ body {
     font-size: var(--hud-font-medium);
     font-weight: 700;
     color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
 }
 
 .lap-current {
     color: var(--accent-gold);
     font-size: var(--hud-font-large);
+    font-variant-numeric: tabular-nums;
+    min-width: 1ch;
+    display: inline-block;
+    text-align: center;
 }
 
 .lap-total {
     color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
 }
 
 /* Boost Indicator */
@@ -484,10 +521,14 @@ body {
 .race-ready {
     font-size: clamp(48px, 12vw, 120px);
     font-weight: 900;
-    color: var(--primary-neon);
-    text-shadow: var(--neon-glow);
+    /* Gradient text for premium look */
+    background: linear-gradient(135deg, var(--primary-neon), var(--secondary-neon));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     text-transform: uppercase;
     letter-spacing: 4px;
+    filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
     animation: neon-flicker 2s ease-in-out infinite;
 }
 

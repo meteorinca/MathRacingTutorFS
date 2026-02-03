@@ -355,19 +355,19 @@ function updateCarMovement(deltaTime) {
 
 function updateCarPositions() {
     const cars = gameState.cars;
-    const carWidth = 80; // Approximate car width
 
+    // Use Math.round to snap to whole pixels and prevent sub-pixel jittering
     if (elements.playerCar) {
-        elements.playerCar.style.left = `${cars.player.x}px`;
+        elements.playerCar.style.left = `${Math.round(cars.player.x)}px`;
     }
     if (elements.enemyCar1) {
-        elements.enemyCar1.style.left = `${cars.enemy1.x}px`;
+        elements.enemyCar1.style.left = `${Math.round(cars.enemy1.x)}px`;
     }
     if (elements.enemyCar2) {
-        elements.enemyCar2.style.left = `${cars.enemy2.x}px`;
+        elements.enemyCar2.style.left = `${Math.round(cars.enemy2.x)}px`;
     }
     if (elements.enemyCar3) {
-        elements.enemyCar3.style.left = `${cars.enemy3.x}px`;
+        elements.enemyCar3.style.left = `${Math.round(cars.enemy3.x)}px`;
     }
 }
 
@@ -383,14 +383,16 @@ function updateCamera() {
     gameState.cameraOffset = Math.max(0, targetOffset);
 
     // Apply camera offset as negative transform to the car wrapper
+    // Use Math.round; use translate3d for GPU acceleration to prevent jitter
+    const roundedOffset = Math.round(gameState.cameraOffset);
     if (elements.carWrapper) {
-        elements.carWrapper.style.transform = `translateX(-${gameState.cameraOffset}px)`;
+        elements.carWrapper.style.transform = `translate3d(-${roundedOffset}px, 0, 0)`;
     }
 
     // Also move the track background for parallax effect
     if (elements.trackImage) {
-        const parallaxOffset = gameState.cameraOffset * 0.5; // Slower movement for depth
-        elements.trackImage.style.transform = `translateX(-${parallaxOffset}px)`;
+        const parallaxOffset = Math.round(gameState.cameraOffset * 0.5); // Slower movement for depth
+        elements.trackImage.style.transform = `translate3d(-${parallaxOffset}px, 0, 0)`;
     }
 }
 
