@@ -56,6 +56,12 @@
                 <div class="car enemy-car" id="enemy-car-3" data-lane="4">
                     <img src="dist/assets/racing/enemy_car_3.png" alt="Enemy Car 3">
                 </div>
+
+                <!-- Finish Line -->
+                <div class="finish-line" id="finish-line">
+                    <div class="checkered-pattern"></div>
+                    <div class="finish-text">🏁 FINISH</div>
+                </div>
             </div>
         </div>
 
@@ -181,6 +187,19 @@
                 <div class="settings-group">
                     <label class="settings-label">Problem Interval (seconds)</label>
                     <input type="number" id="problem-interval" value="8" min="3" max="30">
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Time to Answer (seconds)</label>
+                    <input type="number" id="answer-time" value="8" min="3" max="15">
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Number of Laps</label>
+                    <input type="number" id="num-laps" value="3" min="1" max="10">
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">
+                        <input type="checkbox" id="sound-enabled" checked> Enable Sound
+                    </label>
                 </div>
                 <button class="settings-save" id="settings-save">Save & Close</button>
             </div>

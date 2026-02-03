@@ -3,6 +3,133 @@
    Handles HUD updates, timers, math problems, and game state
    ============================================ */
 
+// ============= Sound System =============
+const SoundManager = {
+    sounds: {},
+    musicPlaying: false,
+    enabled: true,
+
+    // Initialize all sounds
+    init() {
+        // Create audio context for Web Audio API sounds
+        this.audioContext = null;
+
+        // Define sound URLs (using free sound effects - base64 embedded or URLs)
+        this.soundDefs = {
+            // Button clicks - short blip sound
+            click: { freq: 800, duration: 0.1, type: 'square' },
+            // Correct answer - ascending tone
+            correct: { freq: [400, 600, 800], duration: 0.15, type: 'sine' },
+            // Wrong answer - descending tone
+            wrong: { freq: [400, 200], duration: 0.2, type: 'sawtooth' },
+            // Boost activation - whoosh
+            boost: { freq: [200, 800, 1200], duration: 0.3, type: 'sawtooth' },
+            // Race start - beeps
+            countdown: { freq: 440, duration: 0.2, type: 'square' },
+            countdownGo: { freq: 880, duration: 0.4, type: 'square' },
+            // Lap complete
+            lap: { freq: [523, 659, 784], duration: 0.2, type: 'sine' },
+            // Win fanfare
+            win: { freq: [523, 659, 784, 1047], duration: 0.25, type: 'sine' },
+            // Lose sound
+            lose: { freq: [400, 300, 200], duration: 0.3, type: 'sawtooth' }
+        };
+
+        console.log('🔊 Sound system initialized');
+    },
+
+    // Get or create audio context (must be after user interaction)
+    getContext() {
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+        return this.audioContext;
+    },
+
+    // Play a synthesized sound
+    play(soundName) {
+        if (!this.enabled) return;
+
+        const def = this.soundDefs[soundName];
+        if (!def) return;
+
+        try {
+            const ctx = this.getContext();
+            const freqs = Array.isArray(def.freq) ? def.freq : [def.freq];
+
+            freqs.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = def.type;
+                osc.frequency.value = freq;
+
+                gain.gain.setValueAtTime(0.3, ctx.currentTime + i * def.duration);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i + 1) * def.duration);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(ctx.currentTime + i * def.duration);
+                osc.stop(ctx.currentTime + (i + 1) * def.duration);
+            });
+        } catch (e) {
+            console.log('Sound play error:', e);
+        }
+    },
+
+    // Start background engine hum
+    startEngineSound() {
+        if (!this.enabled || this.engineOsc) return;
+
+        try {
+            const ctx = this.getContext();
+            this.engineOsc = ctx.createOscillator();
+            this.engineGain = ctx.createGain();
+
+            this.engineOsc.type = 'sawtooth';
+            this.engineOsc.frequency.value = 80;
+            this.engineGain.gain.value = 0.05;
+
+            this.engineOsc.connect(this.engineGain);
+            this.engineGain.connect(ctx.destination);
+            this.engineOsc.start();
+        } catch (e) {
+            console.log('Engine sound error:', e);
+        }
+    },
+
+    // Update engine pitch based on speed
+    updateEnginePitch(speed) {
+        if (this.engineOsc && this.enabled) {
+            const pitch = 80 + (speed * 0.5);
+            this.engineOsc.frequency.value = Math.min(pitch, 200);
+        }
+    },
+
+    // Stop engine sound
+    stopEngineSound() {
+        if (this.engineOsc) {
+            try {
+                this.engineOsc.stop();
+                this.engineOsc = null;
+                this.engineGain = null;
+            } catch (e) { }
+        }
+    },
+
+    // Toggle sound
+    toggle(enabled) {
+        this.enabled = enabled;
+        if (!enabled) {
+            this.stopEngineSound();
+        }
+    }
+};
+
 // ============= Game State =============
 const gameState = {
     position: 1,
@@ -12,25 +139,30 @@ const gameState = {
     speed: 156,
     maxSpeed: 200,
     problemsSolved: 0,
-    boostReady: false, // Start with no boost - must earn it
+    problemsThisLap: 0,
+    boostReady: false,
     boostCharge: 0,
     raceStarted: false,
-    raceInMotion: false, // Cars only move when this is true
-    gamePaused: false, // Pause when showing math problem
+    raceInMotion: false,
+    gamePaused: false,
     raceTime: 0,
-    displaySpeed: 0, // Smoothed speed for display
-    targetSpeed: 0, // Target speed value
+    displaySpeed: 0,
+    targetSpeed: 0,
     bestLap: null,
     startTime: null,
 
-    // Car race state
+    // Car race state - each enemy has personality
     cars: {
-        player: { x: 50, speed: 0, baseSpeed: 2.5, lane: 2, turboActive: false },
-        enemy1: { x: 50, speed: 0, baseSpeed: 2.2, lane: 1 },
-        enemy2: { x: 50, speed: 0, baseSpeed: 2.3, lane: 3 },
-        enemy3: { x: 50, speed: 0, baseSpeed: 2.1, lane: 4 }
+        player: { x: 50, speed: 0, baseSpeed: 2.0, lane: 2, turboActive: false },
+        // Steady Eddie - consistent, slightly slow
+        enemy1: { x: 50, speed: 0, baseSpeed: 2.1, lane: 1, personality: 'steady', variance: 0.05 },
+        // Speed Demon - fast but erratic
+        enemy2: { x: 50, speed: 0, baseSpeed: 2.3, lane: 3, personality: 'aggressive', variance: 0.3 },
+        // Turtle - slow starter but speeds up over time
+        enemy3: { x: 50, speed: 0, baseSpeed: 1.9, lane: 4, personality: 'crescendo', variance: 0.1 }
     },
-    trackLength: 3000, // pixels
+    trackLength: 3000,
+    lapDistance: 0, // How far constitutes a lap
     cameraOffset: 0,
     raceAnimationId: null,
 
@@ -38,8 +170,10 @@ const gameState = {
     mathSettings: {
         minMultiplier: 3,
         maxMultiplier: 12,
-        problemInterval: 8, // seconds between problems
-        answerTime: 5 // seconds to answer
+        problemInterval: 8,
+        answerTime: 8, // Changed default to 8 seconds
+        numLaps: 3,
+        soundEnabled: true
     },
     currentProblem: null,
     mathTimerId: null,
@@ -56,6 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeGame() {
+    // Initialize sound system
+    SoundManager.init();
+
     // Cache DOM elements
     cacheElements();
 
@@ -80,9 +217,10 @@ function initializeGame() {
     // Initialize race (cars at starting positions, not moving yet)
     initializeRace();
 
-    // Reset HUD to initial state (problems solved = 0)
+    // Reset HUD to initial state
     updateProblems(0);
     updateBoost(false, 0);
+    updateLap(1, gameState.mathSettings.numLaps);
 }
 
 function cacheElements() {
@@ -113,7 +251,7 @@ function cacheElements() {
         boostStatus: document.getElementById('boost-status'),
         boostCharge: document.getElementById('boost-charge'),
 
-        // Cars
+        // Cars & Track
         carWrapper: document.getElementById('car-wrapper'),
         playerCar: document.getElementById('player-car'),
         enemyCar1: document.getElementById('enemy-car-1'),
@@ -122,6 +260,7 @@ function cacheElements() {
         trackImage: document.getElementById('track-image'),
         startRaceBtn: document.getElementById('start-race-btn'),
         centerMessage: document.getElementById('center-message'),
+        finishLine: document.getElementById('finish-line'),
 
         // Math modal elements
         mathModalOverlay: document.getElementById('math-modal-overlay'),
@@ -138,6 +277,9 @@ function cacheElements() {
         multMin: document.getElementById('mult-min'),
         multMax: document.getElementById('mult-max'),
         problemInterval: document.getElementById('problem-interval'),
+        answerTime: document.getElementById('answer-time'),
+        numLaps: document.getElementById('num-laps'),
+        soundEnabled: document.getElementById('sound-enabled'),
         settingsSave: document.getElementById('settings-save')
     };
 }
@@ -154,9 +296,13 @@ function setupEventListeners() {
 
     // START RACE button
     if (elements.startRaceBtn) {
-        elements.startRaceBtn.addEventListener('click', startRace);
+        elements.startRaceBtn.addEventListener('click', () => {
+            SoundManager.play('click');
+            startRace();
+        });
         elements.startRaceBtn.addEventListener('touchend', (e) => {
             e.preventDefault();
+            SoundManager.play('click');
             startRace();
         });
     }
@@ -181,13 +327,17 @@ function setupSettingsPanel() {
     // Toggle settings panel
     if (elements.settingsToggle) {
         elements.settingsToggle.addEventListener('click', () => {
+            SoundManager.play('click');
             elements.settingsPanel.classList.toggle('active');
         });
     }
 
     // Save settings
     if (elements.settingsSave) {
-        elements.settingsSave.addEventListener('click', saveSettings);
+        elements.settingsSave.addEventListener('click', () => {
+            SoundManager.play('click');
+            saveSettings();
+        });
     }
 
     // Keyboard shortcut to toggle settings (S key)
@@ -206,33 +356,55 @@ function loadSettings() {
         try {
             const settings = JSON.parse(saved);
             gameState.mathSettings = { ...gameState.mathSettings, ...settings };
-
-            // Update UI
-            if (elements.multMin) elements.multMin.value = gameState.mathSettings.minMultiplier;
-            if (elements.multMax) elements.multMax.value = gameState.mathSettings.maxMultiplier;
-            if (elements.problemInterval) elements.problemInterval.value = gameState.mathSettings.problemInterval;
         } catch (e) {
             console.log('Could not load settings:', e);
         }
     }
+
+    // Update UI with loaded/default values
+    if (elements.multMin) elements.multMin.value = gameState.mathSettings.minMultiplier;
+    if (elements.multMax) elements.multMax.value = gameState.mathSettings.maxMultiplier;
+    if (elements.problemInterval) elements.problemInterval.value = gameState.mathSettings.problemInterval;
+    if (elements.answerTime) elements.answerTime.value = gameState.mathSettings.answerTime;
+    if (elements.numLaps) elements.numLaps.value = gameState.mathSettings.numLaps;
+    if (elements.soundEnabled) elements.soundEnabled.checked = gameState.mathSettings.soundEnabled;
+
+    // Apply sound setting
+    SoundManager.toggle(gameState.mathSettings.soundEnabled);
+
+    // Update total laps
+    gameState.totalLaps = gameState.mathSettings.numLaps;
 }
 
 function saveSettings() {
     const minVal = parseInt(elements.multMin?.value) || 3;
     const maxVal = parseInt(elements.multMax?.value) || 12;
     const interval = parseInt(elements.problemInterval?.value) || 8;
+    const answerTime = parseInt(elements.answerTime?.value) || 8;
+    const numLaps = parseInt(elements.numLaps?.value) || 3;
+    const soundEnabled = elements.soundEnabled?.checked ?? true;
 
     gameState.mathSettings.minMultiplier = Math.max(1, Math.min(12, minVal));
     gameState.mathSettings.maxMultiplier = Math.max(gameState.mathSettings.minMultiplier, Math.min(12, maxVal));
     gameState.mathSettings.problemInterval = Math.max(3, Math.min(30, interval));
+    gameState.mathSettings.answerTime = Math.max(3, Math.min(15, answerTime));
+    gameState.mathSettings.numLaps = Math.max(1, Math.min(10, numLaps));
+    gameState.mathSettings.soundEnabled = soundEnabled;
 
     // Save to localStorage
     localStorage.setItem('mathRacerSettings', JSON.stringify(gameState.mathSettings));
+
+    // Apply settings
+    gameState.totalLaps = gameState.mathSettings.numLaps;
+    SoundManager.toggle(soundEnabled);
+    updateLap(gameState.currentLap, gameState.totalLaps);
 
     // Update UI values
     if (elements.multMin) elements.multMin.value = gameState.mathSettings.minMultiplier;
     if (elements.multMax) elements.multMax.value = gameState.mathSettings.maxMultiplier;
     if (elements.problemInterval) elements.problemInterval.value = gameState.mathSettings.problemInterval;
+    if (elements.answerTime) elements.answerTime.value = gameState.mathSettings.answerTime;
+    if (elements.numLaps) elements.numLaps.value = gameState.mathSettings.numLaps;
 
     // Close panel
     elements.settingsPanel?.classList.remove('active');
@@ -297,7 +469,7 @@ function updateSpeed(speed) {
 
 // Smoothly interpolate displayed speed towards target
 function smoothSpeedUpdate() {
-    const smoothFactor = 0.08; // Lower = smoother/slower transitions
+    const smoothFactor = 0.08;
     gameState.displaySpeed += (gameState.targetSpeed - gameState.displaySpeed) * smoothFactor;
 
     const displayValue = Math.round(gameState.displaySpeed);
@@ -310,6 +482,9 @@ function smoothSpeedUpdate() {
     if (elements.speedBar) {
         elements.speedBar.style.width = percentage + '%';
     }
+
+    // Update engine sound pitch
+    SoundManager.updateEnginePitch(displayValue);
 }
 
 function updateProblems(count) {
@@ -361,8 +536,8 @@ function handleKeyDown(e) {
     switch (e.code) {
         case 'Space':
         case 'Enter':
-            // Start race if not started, otherwise boost
             if (!gameState.raceInMotion) {
+                SoundManager.play('click');
                 startRace();
             } else if (gameState.boostReady) {
                 activateTurboBoost();
@@ -370,14 +545,14 @@ function handleKeyDown(e) {
             e.preventDefault();
             break;
         case 'Escape':
-            // Close settings if open
             elements.settingsPanel?.classList.remove('active');
             break;
     }
 }
 
 function handleTouch(e) {
-    // Double-tap could boost in future
+    // Initialize audio context on first touch (required for iOS)
+    SoundManager.getContext();
 }
 
 function handleResize() {
@@ -388,12 +563,11 @@ function handleResize() {
 function generateMathProblem() {
     const { minMultiplier, maxMultiplier } = gameState.mathSettings;
 
-    // Generate two random numbers within range
     const num1 = Math.floor(Math.random() * (maxMultiplier - minMultiplier + 1)) + minMultiplier;
     const num2 = Math.floor(Math.random() * (maxMultiplier - minMultiplier + 1)) + minMultiplier;
     const answer = num1 * num2;
 
-    // Randomly decide problem type: 0 = answer blank, 1 = first operand blank, 2 = second operand blank
+    // 70% standard, 30% reverse (missing operand)
     const problemType = Math.random() < 0.7 ? 0 : (Math.random() < 0.5 ? 1 : 2);
 
     let problem = {
@@ -404,7 +578,6 @@ function generateMathProblem() {
         userAnswer: null
     };
 
-    // What the user needs to find
     switch (problemType) {
         case 0: // 9 × 12 = ___
             problem.blankValue = answer;
@@ -424,28 +597,23 @@ function generateMathProblem() {
 }
 
 function showMathProblem() {
-    // Don't show if race isn't in motion
     if (!gameState.raceInMotion) return;
 
-    // Generate new problem
     gameState.currentProblem = generateMathProblem();
     const problem = gameState.currentProblem;
 
-    // Update modal display based on problem type
+    // Update modal display
     if (problem.type === 0) {
-        // Standard: 9 × 12 = ___
         elements.mathOperand1.textContent = problem.num1;
         elements.mathOperand1.classList.remove('blank');
         elements.mathOperand2.textContent = problem.num2;
         elements.mathOperand2.classList.remove('blank');
     } else if (problem.type === 1) {
-        // ___ × 12 = 108
         elements.mathOperand1.textContent = '?';
         elements.mathOperand1.classList.add('blank');
         elements.mathOperand2.textContent = problem.num2;
         elements.mathOperand2.classList.remove('blank');
     } else {
-        // 9 × ___ = 108
         elements.mathOperand1.textContent = problem.num1;
         elements.mathOperand1.classList.remove('blank');
         elements.mathOperand2.textContent = '?';
@@ -458,7 +626,7 @@ function showMathProblem() {
     elements.mathFeedback.textContent = problem.type !== 0 ? `= ${problem.display.showAnswer}` : '';
     elements.mathFeedback.className = 'math-feedback';
 
-    // Reset timer bar
+    // Reset timer bar with configurable time
     elements.mathTimerBar.style.transform = 'scaleX(1)';
     elements.mathTimerText.textContent = `${gameState.mathSettings.answerTime}.0s`;
     elements.mathTimerText.classList.remove('urgent');
@@ -479,10 +647,9 @@ function showMathProblem() {
 }
 
 function startMathTimer() {
-    const totalTime = gameState.mathSettings.answerTime * 1000; // Convert to ms
+    const totalTime = gameState.mathSettings.answerTime * 1000;
     const startTime = Date.now();
 
-    // Clear any existing timer
     if (gameState.mathTimerId) {
         clearInterval(gameState.mathTimerId);
     }
@@ -492,19 +659,15 @@ function startMathTimer() {
         const remaining = Math.max(0, totalTime - elapsed);
         const fraction = remaining / totalTime;
 
-        // Update timer bar
         elements.mathTimerBar.style.transform = `scaleX(${fraction})`;
 
-        // Update timer text
         const secondsLeft = (remaining / 1000).toFixed(1);
         elements.mathTimerText.textContent = `${secondsLeft}s`;
 
-        // Add urgent class when low on time
         if (remaining < 2000) {
             elements.mathTimerText.classList.add('urgent');
         }
 
-        // Time's up!
         if (remaining <= 0) {
             clearInterval(gameState.mathTimerId);
             handleTimeUp();
@@ -521,11 +684,11 @@ function checkMathAnswer() {
     const correctAnswer = gameState.currentProblem.blankValue;
 
     if (userAnswer === correctAnswer) {
-        // Correct answer!
         clearInterval(gameState.mathTimerId);
+        SoundManager.play('correct');
         handleCorrectAnswer();
     } else if (elements.mathAnswerInput.value.length >= correctAnswer.toString().length) {
-        // Wrong answer (only show feedback if they've typed enough digits)
+        SoundManager.play('wrong');
         elements.mathAnswerInput.classList.add('incorrect');
         setTimeout(() => {
             elements.mathAnswerInput.classList.remove('incorrect');
@@ -534,15 +697,13 @@ function checkMathAnswer() {
 }
 
 function handleCorrectAnswer() {
-    // Show success feedback
     elements.mathAnswerInput.classList.add('correct');
     elements.mathFeedback.textContent = '🎉 BOOST EARNED!';
     elements.mathFeedback.className = 'math-feedback success';
 
-    // Update problems solved
     updateProblems(gameState.problemsSolved + 1);
+    gameState.problemsThisLap++;
 
-    // Close modal after brief delay
     setTimeout(() => {
         hideMathModal();
         activateTurboBoost();
@@ -550,17 +711,15 @@ function handleCorrectAnswer() {
 }
 
 function handleTimeUp() {
-    // Show failure feedback
+    SoundManager.play('wrong');
     elements.mathFeedback.textContent = '⏰ Time\'s up!';
     elements.mathFeedback.className = 'math-feedback fail';
     elements.mathAnswerInput.classList.add('incorrect');
 
-    // Show correct answer
     setTimeout(() => {
         elements.mathFeedback.textContent = `Answer: ${gameState.currentProblem.blankValue}`;
     }, 500);
 
-    // Close modal after delay
     setTimeout(() => {
         hideMathModal();
         scheduleNextProblem();
@@ -574,12 +733,10 @@ function hideMathModal() {
 }
 
 function scheduleNextProblem() {
-    // Clear any existing scheduled problem
     if (gameState.problemTimerId) {
         clearTimeout(gameState.problemTimerId);
     }
 
-    // Schedule next problem
     const delay = gameState.mathSettings.problemInterval * 1000;
     gameState.problemTimerId = setTimeout(() => {
         if (gameState.raceInMotion && !gameState.gamePaused) {
@@ -590,11 +747,11 @@ function scheduleNextProblem() {
 
 // ============= Turbo Boost System =============
 function activateTurboBoost() {
-    if (gameState.cars.player.turboActive) return; // Already boosting
+    if (gameState.cars.player.turboActive) return;
 
     console.log('🚀 TURBO BOOST ACTIVATED!');
+    SoundManager.play('boost');
 
-    // Mark turbo as active
     gameState.cars.player.turboActive = true;
     const originalBaseSpeed = gameState.cars.player.baseSpeed;
 
@@ -604,70 +761,146 @@ function activateTurboBoost() {
         playerCarImg.src = 'dist/assets/racing/player_turbocar.png';
     }
 
-    // Add turbo visual effects
     elements.playerCar?.classList.add('turbo-active');
-
-    // Show boost text popup
     showBoostPopup();
 
-    // Dramatically increase speed
+    // 2.5x speed boost
     gameState.cars.player.baseSpeed = originalBaseSpeed * 2.5;
-
-    // Update boost HUD
     updateBoost(false, 0);
 
     // Turbo duration: 3 seconds
     setTimeout(() => {
-        // End turbo
         gameState.cars.player.turboActive = false;
         gameState.cars.player.baseSpeed = originalBaseSpeed;
 
-        // Switch back to normal car
         if (playerCarImg) {
             playerCarImg.src = 'dist/assets/racing/player_car.png';
         }
 
-        // Remove turbo effects
         elements.playerCar?.classList.remove('turbo-active');
-
-        // Schedule next math problem
         scheduleNextProblem();
-
     }, 3000);
 }
 
 function showBoostPopup() {
-    // Create and show boost text
     const popup = document.createElement('div');
     popup.className = 'boost-success-overlay';
     popup.textContent = '⚡ BOOST!';
     document.body.appendChild(popup);
 
-    // Remove after animation
     setTimeout(() => {
         popup.remove();
     }, 1000);
 }
 
-// ============= Game Actions =============
-function togglePause() {
-    console.log('Game paused/resumed');
+// ============= Race Result System =============
+function showRaceResult(won) {
+    // Stop the race
+    gameState.raceInMotion = false;
+    SoundManager.stopEngineSound();
+
+    if (won) {
+        SoundManager.play('win');
+    } else {
+        SoundManager.play('lose');
+    }
+
+    // Create result overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'race-result-overlay';
+    overlay.id = 'race-result-overlay';
+
+    const resultText = document.createElement('div');
+    resultText.className = `race-result-text ${won ? 'win' : 'lose'}`;
+    resultText.textContent = won ? '🏆 YOU WIN!' : '💨 YOU LOSE!';
+
+    const stats = document.createElement('div');
+    stats.className = 'race-result-stats';
+    const elapsed = Date.now() - gameState.startTime;
+    stats.innerHTML = `
+        Position: ${gameState.position}${['st', 'nd', 'rd', 'th'][gameState.position - 1] || 'th'}<br>
+        Problems Solved: ${gameState.problemsSolved}<br>
+        Time: ${formatTime(elapsed)}
+    `;
+
+    const btn = document.createElement('button');
+    btn.className = 'race-result-btn';
+    btn.textContent = '🏁 RACE AGAIN';
+    btn.onclick = () => {
+        SoundManager.play('click');
+        overlay.remove();
+        resetFullRace();
+    };
+
+    overlay.appendChild(resultText);
+    overlay.appendChild(stats);
+    overlay.appendChild(btn);
+    document.body.appendChild(overlay);
+
+    // Activate with slight delay for animation
+    setTimeout(() => {
+        overlay.classList.add('active');
+    }, 100);
+}
+
+function resetFullRace() {
+    // Reset all game state
+    gameState.currentLap = 1;
+    gameState.problemsSolved = 0;
+    gameState.problemsThisLap = 0;
+
+    // Reset timers
+    if (timerIntervalId) clearInterval(timerIntervalId);
+    if (gameState.mathTimerId) clearInterval(gameState.mathTimerId);
+    if (gameState.problemTimerId) clearTimeout(gameState.problemTimerId);
+
+    // Reset timer display
+    if (elements.timerMinutes) elements.timerMinutes.textContent = '00';
+    if (elements.timerSeconds) elements.timerSeconds.textContent = '00';
+    if (elements.timerMs) elements.timerMs.textContent = '00';
+
+    // Show start button again
+    if (elements.startRaceBtn) {
+        elements.startRaceBtn.classList.remove('hidden');
+    }
+    if (elements.centerMessage) {
+        elements.centerMessage.style.display = 'flex';
+        elements.centerMessage.style.opacity = '1';
+    }
+
+    // Update HUD
+    updateProblems(0);
+    updateLap(1, gameState.totalLaps);
+    updateBoost(false, 0);
+    updatePosition(1);
+
+    // Reinitialize race
+    initializeRace();
 }
 
 // ============= Race Simulation =============
 function initializeRace() {
-    // Initialize car positions at starting line but don't move yet
     initializeCarPositions();
+    positionFinishLine();
 
-    // Start the animation loop (but cars won't move until raceInMotion is true)
     gameState.raceStarted = true;
     gameState.raceInMotion = false;
     lastFrameTime = performance.now();
     requestAnimationFrame(raceLoop);
 }
 
+function positionFinishLine() {
+    // Position finish line at end of track
+    const viewportWidth = window.innerWidth;
+    gameState.lapDistance = viewportWidth * 2.5; // Lap distance
+
+    if (elements.finishLine) {
+        elements.finishLine.style.left = `${gameState.lapDistance}px`;
+    }
+}
+
 function startRace() {
-    if (gameState.raceInMotion) return; // Already racing
+    if (gameState.raceInMotion) return;
 
     // Hide the start button and message
     if (elements.startRaceBtn) {
@@ -681,15 +914,22 @@ function startRace() {
         }, 500);
     }
 
-    // Start race timer NOW (after pressing start)
+    // Play countdown
+    SoundManager.play('countdown');
+
+    // Start race timer
     startRaceTimer();
+
+    // Start engine sound
+    SoundManager.startEngineSound();
 
     // Start the cars moving!
     gameState.raceInMotion = true;
+    gameState.problemsThisLap = 0;
 
     console.log('🏁 Race Started!');
 
-    // Schedule first math problem after a few seconds
+    // Schedule first math problem
     setTimeout(() => {
         if (gameState.raceInMotion) {
             showMathProblem();
@@ -698,98 +938,181 @@ function startRace() {
 }
 
 let lastFrameTime = 0;
+let raceElapsedTime = 0; // Track how long race has been going
 
 function initializeCarPositions() {
-    const startX = 80; // Starting position from left edge (pixels)
+    const startX = 80;
     const cars = gameState.cars;
 
-    // Set initial positions - player slightly behind for dramatic effect
-    cars.player.x = startX - 20; // Player starts slightly behind
+    // Player starts slightly behind
+    cars.player.x = startX - 20;
     cars.enemy1.x = startX - 10;
     cars.enemy2.x = startX + 5;
     cars.enemy3.x = startX - 5;
 
-    // Randomize base speeds a bit for variety
-    cars.player.baseSpeed = 2.5 + (Math.random() - 0.5) * 0.5;
-    cars.enemy1.baseSpeed = 2.2 + (Math.random() - 0.5) * 0.6;
-    cars.enemy2.baseSpeed = 2.3 + (Math.random() - 0.5) * 0.6;
-    cars.enemy3.baseSpeed = 2.1 + (Math.random() - 0.5) * 0.6;
+    // Reset player speed to base (no random variance for player)
+    cars.player.baseSpeed = 2.0;
 
-    // Apply initial positions
+    // Enemy personalities with competitive speeds
+    // Steady Eddie - consistent, reliable
+    cars.enemy1.baseSpeed = 2.15;
+    cars.enemy1.variance = 0.05;
+
+    // Speed Demon - fast but erratic, sometimes slows down
+    cars.enemy2.baseSpeed = 2.25;
+    cars.enemy2.variance = 0.4;
+
+    // Turtle/Crescendo - starts slow but gets faster each lap
+    cars.enemy3.baseSpeed = 1.95;
+    cars.enemy3.variance = 0.1;
+
+    raceElapsedTime = 0;
     updateCarPositions();
 }
 
 function raceLoop(currentTime) {
     if (!gameState.raceStarted) return;
 
-    const deltaTime = (currentTime - lastFrameTime) / 16.67; // Normalize to ~60fps
+    const deltaTime = (currentTime - lastFrameTime) / 16.67;
     lastFrameTime = currentTime;
 
-    // Update car positions (unless game is paused)
-    if (!gameState.gamePaused) {
+    if (!gameState.gamePaused && gameState.raceInMotion) {
+        raceElapsedTime += deltaTime * 16.67;
         updateCarMovement(deltaTime);
     }
 
-    // Update camera to follow player
     updateCamera();
-
-    // Update race positions in HUD
     updateRacePositions();
 
-    // Update speed display based on player speed (smoothed)
     if (gameState.raceInMotion && !gameState.gamePaused) {
         const playerSpeedMPH = Math.round(gameState.cars.player.speed * 50);
         updateSpeed(playerSpeedMPH);
     } else if (!gameState.raceInMotion) {
-        updateSpeed(0); // Cars not moving yet
+        updateSpeed(0);
     }
-    smoothSpeedUpdate(); // Apply smooth interpolation
+    smoothSpeedUpdate();
 
-    // Continue animation loop
     gameState.raceAnimationId = requestAnimationFrame(raceLoop);
 }
 
 function updateCarMovement(deltaTime) {
-    // Don't move cars if race hasn't started or game is paused
     if (!gameState.raceInMotion || gameState.gamePaused) {
         updateCarPositions();
         return;
     }
 
     const cars = gameState.cars;
-    const viewportWidth = window.innerWidth;
-    const maxX = viewportWidth * 3; // Track is 3 viewport widths
+    const lapDist = gameState.lapDistance;
 
-    // Update each car's speed with some randomness for realism
-    Object.keys(cars).forEach(carKey => {
-        const car = cars[carKey];
+    // Update player car
+    const playerVariation = (Math.random() - 0.5) * 0.1;
+    cars.player.speed = cars.player.baseSpeed + playerVariation;
+    cars.player.x += cars.player.speed * deltaTime;
 
-        // Add slight speed variation (acceleration/deceleration feel) - reduced for smoother motion
-        const speedVariation = (Math.random() - 0.5) * 0.15;
-        car.speed = car.baseSpeed + speedVariation;
+    // Update enemy cars with personalities
+    updateEnemyCar(cars.enemy1, 'steady', deltaTime);
+    updateEnemyCar(cars.enemy2, 'aggressive', deltaTime);
+    updateEnemyCar(cars.enemy3, 'crescendo', deltaTime);
 
-        // Move car forward
-        car.x += car.speed * deltaTime;
+    // Check for lap completion (player crosses finish line)
+    if (cars.player.x >= lapDist) {
+        handleLapComplete();
+    }
 
-        // Check for finish line - reset race when player finishes
-        if (carKey === 'player' && car.x >= maxX) {
-            resetRace();
-            return;
+    // Check if an enemy wins
+    Object.keys(cars).forEach(key => {
+        if (key !== 'player' && cars[key].x >= lapDist) {
+            // Enemy finished this lap
+            if (gameState.currentLap >= gameState.totalLaps) {
+                // Check if player also finished
+                if (cars.player.x < lapDist) {
+                    // Enemy won!
+                    showRaceResult(false);
+                }
+            }
         }
     });
 
-    // Apply positions to DOM
     updateCarPositions();
+}
+
+function updateEnemyCar(car, personality, deltaTime) {
+    const lapProgress = gameState.currentLap / gameState.totalLaps;
+    const timeProgress = Math.min(raceElapsedTime / 60000, 1); // Progress over first minute
+
+    let speedMod = 0;
+
+    switch (personality) {
+        case 'steady':
+            // Very consistent, small random variance
+            speedMod = (Math.random() - 0.5) * car.variance;
+            break;
+
+        case 'aggressive':
+            // Fast with bursts, but occasionally slows down significantly
+            if (Math.random() < 0.02) {
+                // 2% chance to slow down dramatically
+                speedMod = -0.8;
+            } else if (Math.random() < 0.1) {
+                // 10% chance to speed burst
+                speedMod = 0.5;
+            } else {
+                speedMod = (Math.random() - 0.3) * car.variance;
+            }
+            break;
+
+        case 'crescendo':
+            // Gets faster as race progresses
+            const crescendoBoost = lapProgress * 0.4 + timeProgress * 0.3;
+            speedMod = crescendoBoost + (Math.random() - 0.5) * car.variance;
+            break;
+    }
+
+    car.speed = car.baseSpeed + speedMod;
+    car.x += car.speed * deltaTime;
+}
+
+function handleLapComplete() {
+    SoundManager.play('lap');
+
+    if (gameState.currentLap >= gameState.totalLaps) {
+        // Race complete! Check if player won
+        const playerWon = gameState.position === 1;
+        showRaceResult(playerWon);
+        return;
+    }
+
+    // Next lap
+    gameState.currentLap++;
+    gameState.problemsThisLap = 0;
+    updateLap(gameState.currentLap, gameState.totalLaps);
+
+    // Reset all car positions for new lap
+    const cars = gameState.cars;
+    const startX = 80;
+
+    // Keep relative positions but reset to start
+    const playerLead = cars.player.x - gameState.lapDistance;
+    cars.player.x = startX + playerLead * 0.2; // Some carryover advantage
+    cars.enemy1.x = startX + (cars.enemy1.x - gameState.lapDistance) * 0.2;
+    cars.enemy2.x = startX + (cars.enemy2.x - gameState.lapDistance) * 0.2;
+    cars.enemy3.x = startX + (cars.enemy3.x - gameState.lapDistance) * 0.2;
+
+    // Crescendo enemy gets faster each lap
+    cars.enemy3.baseSpeed += 0.15;
+
+    // Reset camera
+    gameState.cameraOffset = 0;
+    updateCamera();
+
+    console.log(`🏁 Lap ${gameState.currentLap} started!`);
 }
 
 function updateCarPositions() {
     const cars = gameState.cars;
 
-    // Use transform: translate3d for GPU-accelerated, jitter-free animation on iOS/iPad
-    // Round to whole pixels to prevent sub-pixel rendering issues
     if (elements.playerCar) {
         const x = Math.round(cars.player.x);
-        // Store x for CSS animation to use
         elements.playerCar.style.setProperty('--car-x', `${x}px`);
         if (!cars.player.turboActive) {
             elements.playerCar.style.transform = `translate3d(${x}px, 0, 0) rotate(90deg)`;
@@ -813,22 +1136,16 @@ function updateCamera() {
     const playerX = gameState.cars.player.x;
     const viewportWidth = window.innerWidth;
 
-    // Keep player car roughly 30% from the left of the screen
     const targetOffset = playerX - (viewportWidth * 0.3);
-
-    // Don't let camera go negative (before start)
     gameState.cameraOffset = Math.max(0, targetOffset);
 
-    // Apply camera offset as negative transform to the car wrapper
-    // Use Math.round; use translate3d for GPU acceleration to prevent jitter
     const roundedOffset = Math.round(gameState.cameraOffset);
     if (elements.carWrapper) {
         elements.carWrapper.style.transform = `translate3d(-${roundedOffset}px, 0, 0)`;
     }
 
-    // Also move the track background for parallax effect
     if (elements.trackImage) {
-        const parallaxOffset = Math.round(gameState.cameraOffset * 0.5); // Slower movement for depth
+        const parallaxOffset = Math.round(gameState.cameraOffset * 0.5);
         elements.trackImage.style.transform = `translate3d(-${parallaxOffset}px, 0, 0)`;
     }
 }
@@ -836,7 +1153,6 @@ function updateCamera() {
 function updateRacePositions() {
     const cars = gameState.cars;
 
-    // Sort cars by x position (descending - furthest ahead first)
     const positions = [
         { key: 'player', x: cars.player.x },
         { key: 'enemy1', x: cars.enemy1.x },
@@ -844,31 +1160,11 @@ function updateRacePositions() {
         { key: 'enemy3', x: cars.enemy3.x }
     ].sort((a, b) => b.x - a.x);
 
-    // Find player's position
     const playerPosition = positions.findIndex(p => p.key === 'player') + 1;
 
-    // Update HUD if position changed
     if (playerPosition !== gameState.position) {
         updatePosition(playerPosition);
     }
-}
-
-function resetRace() {
-    // Complete a lap
-    if (gameState.currentLap < gameState.totalLaps) {
-        updateLap(gameState.currentLap + 1, gameState.totalLaps);
-    } else {
-        // Race complete - restart from lap 1
-        gameState.currentLap = 1;
-        updateLap(1, gameState.totalLaps);
-    }
-
-    // Reset car positions
-    initializeCarPositions();
-
-    // Reset camera
-    gameState.cameraOffset = 0;
-    updateCamera();
 }
 
 // ============= Utility Functions =============
