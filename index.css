@@ -1,0 +1,600 @@
+/* ============================================
+   MATH RACING TUTOR - Core Styles
+   Premium Racing Game Aesthetic
+   ============================================ */
+
+/* ============= CSS Variables ============= */
+:root {
+    /* Racing Theme Colors - Toned Down */
+    --primary-neon: #4ecdc4;
+    --secondary-neon: #c478b2;
+    --accent-gold: #e8b84a;
+    --boost-green: #5cb85c;
+    --warning-red: #d66a6a;
+
+    /* Glass Effect */
+    --glass-bg: rgba(20, 25, 35, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-blur: 10px;
+
+    /* Text */
+    --text-primary: #f0f0f0;
+    --text-secondary: rgba(240, 240, 240, 0.75);
+    --text-muted: rgba(240, 240, 240, 0.45);
+
+    /* Sizing - Responsive units */
+    --hud-padding: clamp(8px, 2vw, 16px);
+    --hud-font-small: clamp(10px, 1.5vw, 14px);
+    --hud-font-medium: clamp(14px, 2.5vw, 20px);
+    --hud-font-large: clamp(24px, 5vw, 48px);
+    --hud-font-xlarge: clamp(36px, 8vw, 72px);
+
+    /* Shadows - Reduced glow intensity */
+    --neon-glow: 0 0 6px var(--primary-neon), 0 0 12px rgba(78, 205, 196, 0.4);
+    --gold-glow: 0 0 6px var(--accent-gold), 0 0 12px rgba(232, 184, 74, 0.3);
+    --subtle-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ============= Reset & Base ============= */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Rajdhani', 'Orbitron', 'Segoe UI', sans-serif;
+    background: #000;
+}
+
+/* ============= Game Container ============= */
+.game-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ============= Track Background ============= */
+.track-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.track-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Subtle vignette overlay */
+.track-layer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4) 100%);
+    pointer-events: none;
+}
+
+/* ============= Cars Layer ============= */
+.cars-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    overflow: hidden;
+}
+
+.car-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 300vw;
+    /* Extended track length */
+    height: 100%;
+    transition: transform 0.05s linear;
+}
+
+/* Individual Car Styles */
+.car {
+    position: absolute;
+    width: clamp(60px, 8vw, 100px);
+    height: auto;
+    transform: rotate(-90deg);
+    /* Rotate cars to face right */
+    transition: left 0.05s linear;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+.car img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Player car highlight */
+.player-car {
+    z-index: 10;
+    filter: drop-shadow(0 4px 12px rgba(78, 205, 196, 0.5));
+}
+
+/* Enemy cars */
+.enemy-car {
+    z-index: 5;
+}
+
+/* Lane positioning - 4 lanes across screen height */
+.car[data-lane="1"] {
+    top: 15%;
+}
+
+.car[data-lane="2"] {
+    top: 35%;
+}
+
+.car[data-lane="3"] {
+    top: 55%;
+}
+
+.car[data-lane="4"] {
+    top: 75%;
+}
+
+/* ============= HUD Layer ============= */
+.hud-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: var(--hud-padding);
+}
+
+/* Enable pointer events on interactive HUD elements */
+.hud-layer>* {
+    pointer-events: auto;
+}
+
+/* ============= Glassmorphism Panel ============= */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: var(--subtle-shadow);
+}
+
+/* ============= TOP HUD BAR ============= */
+.hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--hud-padding);
+}
+
+/* Position Display */
+.position-display {
+    padding: var(--hud-padding) calc(var(--hud-padding) * 1.5);
+    min-width: clamp(60px, 12vw, 120px);
+    text-align: center;
+}
+
+.position-number {
+    font-size: var(--hud-font-xlarge);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--accent-gold);
+    text-shadow: var(--gold-glow);
+    font-family: 'Orbitron', monospace;
+}
+
+.position-suffix {
+    font-size: var(--hud-font-medium);
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.position-label {
+    font-size: var(--hud-font-small);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+
+/* Timer Display */
+.timer-display {
+    padding: var(--hud-padding) calc(var(--hud-padding) * 2);
+    text-align: center;
+}
+
+.timer-label {
+    font-size: var(--hud-font-small);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+}
+
+.timer-value {
+    font-size: var(--hud-font-large);
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Orbitron', 'Courier New', monospace;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.timer-ms {
+    font-size: var(--hud-font-medium);
+    color: var(--primary-neon);
+}
+
+.best-lap {
+    font-size: var(--hud-font-small);
+    color: var(--boost-green);
+    margin-top: 4px;
+}
+
+.best-lap::before {
+    content: '🏆 ';
+}
+
+/* Speed Display */
+.speed-display {
+    padding: var(--hud-padding) calc(var(--hud-padding) * 1.5);
+    min-width: clamp(80px, 15vw, 150px);
+    text-align: center;
+}
+
+.speed-label {
+    font-size: var(--hud-font-small);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.speed-value {
+    font-size: var(--hud-font-large);
+    font-weight: 900;
+    color: var(--primary-neon);
+    text-shadow: var(--neon-glow);
+    font-family: 'Orbitron', monospace;
+}
+
+.speed-unit {
+    font-size: var(--hud-font-small);
+    color: var(--text-secondary);
+    margin-left: 4px;
+}
+
+.speed-bar-container {
+    margin-top: 8px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.speed-bar {
+    height: 100%;
+    width: 75%;
+    background: linear-gradient(90deg, var(--primary-neon), var(--secondary-neon));
+    border-radius: 3px;
+    box-shadow: 0 0 10px var(--primary-neon);
+    transition: width 0.3s ease;
+}
+
+/* ============= BOTTOM HUD BAR ============= */
+.hud-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: var(--hud-padding);
+}
+
+/* Problems Solved */
+.problems-display {
+    padding: var(--hud-padding);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.problems-icon {
+    font-size: var(--hud-font-large);
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+}
+
+.problems-info {
+    text-align: left;
+}
+
+.problems-value {
+    font-size: var(--hud-font-medium);
+    font-weight: 700;
+    color: var(--boost-green);
+    font-family: 'Orbitron', monospace;
+}
+
+.problems-label {
+    font-size: var(--hud-font-small);
+    color: var(--text-muted);
+}
+
+/* Lap Display */
+.lap-display {
+    padding: var(--hud-padding) calc(var(--hud-padding) * 2);
+    text-align: center;
+}
+
+.lap-label {
+    font-size: var(--hud-font-small);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.lap-value {
+    font-size: var(--hud-font-medium);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.lap-current {
+    color: var(--accent-gold);
+    font-size: var(--hud-font-large);
+}
+
+.lap-total {
+    color: var(--text-secondary);
+}
+
+/* Boost Indicator */
+.boost-display {
+    padding: var(--hud-padding);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.boost-icon {
+    font-size: var(--hud-font-large);
+    animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.boost-info {
+    text-align: right;
+}
+
+.boost-status {
+    font-size: var(--hud-font-medium);
+    font-weight: 700;
+    color: var(--boost-green);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.boost-status.not-ready {
+    color: var(--warning-red);
+}
+
+.boost-charge-bar {
+    width: 80px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.boost-charge {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--boost-green), var(--accent-gold));
+    border-radius: 3px;
+    box-shadow: 0 0 10px var(--boost-green);
+    transition: width 0.3s ease;
+}
+
+/* ============= ANIMATIONS ============= */
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        filter: drop-shadow(0 0 5px var(--boost-green));
+        transform: scale(1);
+    }
+
+    50% {
+        filter: drop-shadow(0 0 15px var(--boost-green)) drop-shadow(0 0 25px var(--boost-green));
+        transform: scale(1.1);
+    }
+}
+
+@keyframes neon-flicker {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+}
+
+@keyframes position-change {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.2);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.position-animate {
+    animation: position-change 0.5s ease-out;
+}
+
+/* ============= CENTER MESSAGE ============= */
+.center-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 20;
+    pointer-events: none;
+}
+
+.race-ready {
+    font-size: clamp(48px, 12vw, 120px);
+    font-weight: 900;
+    color: var(--primary-neon);
+    text-shadow: var(--neon-glow);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    animation: neon-flicker 2s ease-in-out infinite;
+}
+
+.race-subtitle {
+    font-size: var(--hud-font-medium);
+    color: var(--text-secondary);
+    margin-top: 20px;
+    letter-spacing: 2px;
+}
+
+/* Press Space */
+.press-space {
+    margin-top: 40px;
+    font-size: var(--hud-font-medium);
+    color: var(--accent-gold);
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.key-indicator {
+    display: inline-block;
+    background: var(--glass-bg);
+    border: 2px solid var(--accent-gold);
+    border-radius: 8px;
+    padding: 8px 20px;
+    margin-left: 8px;
+    font-family: 'Orbitron', monospace;
+}
+
+/* ============= RESPONSIVE ADJUSTMENTS ============= */
+@media (max-width: 768px) {
+
+    .hud-top,
+    .hud-bottom {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .timer-display {
+        order: -1;
+        flex-basis: 100%;
+        margin-bottom: var(--hud-padding);
+    }
+
+    .lap-display {
+        order: -1;
+        flex-basis: 100%;
+        margin-bottom: var(--hud-padding);
+    }
+}
+
+@media (max-width: 480px) {
+    .glass-panel {
+        border-radius: 8px;
+    }
+
+    .best-lap {
+        display: none;
+    }
+}
+
+/* Landscape mobile optimization */
+@media (max-height: 500px) {
+    .center-message {
+        display: none;
+    }
+
+    .hud-layer {
+        padding: calc(var(--hud-padding) * 0.5);
+    }
+}
+
+/* ============= LOADING STATE ============= */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: opacity 0.5s ease;
+}
+
+.loading-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--primary-neon);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    margin-top: 20px;
+    font-size: var(--hud-font-medium);
+    color: var(--text-secondary);
+    letter-spacing: 2px;
+}

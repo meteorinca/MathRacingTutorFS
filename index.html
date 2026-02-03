@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="description"
+        content="Math Racing Tutor - Learn math through racing! Answer math problems to boost your car and win the race.">
+
+    <title>🏎️ Math Racing Tutor</title>
+
+    <!-- Google Fonts - Racing Style Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">LOADING TRACK...</div>
+    </div>
+
+    <!-- Game Container -->
+    <div class="game-container">
+
+        <!-- LAYER 1: Track Background -->
+        <div class="track-layer">
+            <img src="dist/assets/racing/track_bg.png" alt="Racing Track" class="track-image" id="track-image">
+        </div>
+
+        <!-- LAYER 2: Cars Layer -->
+        <div class="cars-layer" id="cars-layer">
+            <div class="car-wrapper" id="car-wrapper">
+                <!-- Player Car -->
+                <div class="car player-car" id="player-car" data-lane="2">
+                    <img src="dist/assets/racing/player_car.png" alt="Player Car">
+                </div>
+
+                <!-- Enemy Cars -->
+                <div class="car enemy-car" id="enemy-car-1" data-lane="1">
+                    <img src="dist/assets/racing/enemy_car_1.png" alt="Enemy Car 1">
+                </div>
+
+                <div class="car enemy-car" id="enemy-car-2" data-lane="3">
+                    <img src="dist/assets/racing/enemy_car_2.png" alt="Enemy Car 2">
+                </div>
+
+                <div class="car enemy-car" id="enemy-car-3" data-lane="4">
+                    <img src="dist/assets/racing/enemy_car_3.png" alt="Enemy Car 3">
+                </div>
+            </div>
+        </div>
+
+        <!-- LAYER 3: HUD Overlay -->
+        <div class="hud-layer">
+
+            <!-- TOP HUD: Position | Timer | Speed -->
+            <div class="hud-top">
+
+                <!-- Position Display -->
+                <div class="position-display glass-panel">
+                    <div class="position-number" id="position-number">1</div>
+                    <div class="position-suffix" id="position-suffix">st</div>
+                    <div class="position-label">Position</div>
+                </div>
+
+                <!-- Timer Display -->
+                <div class="timer-display glass-panel">
+                    <div class="timer-label">Race Time</div>
+                    <div class="timer-value">
+                        <span id="timer-minutes">00</span>:<span id="timer-seconds">00</span><span
+                            class="timer-ms">.<span id="timer-ms">00</span></span>
+                    </div>
+                    <div class="best-lap" id="best-lap-time">Best: 01:23.45</div>
+                </div>
+
+                <!-- Speed Display -->
+                <div class="speed-display glass-panel">
+                    <div class="speed-label">Speed</div>
+                    <div>
+                        <span class="speed-value" id="speed-value">156</span>
+                        <span class="speed-unit">MPH</span>
+                    </div>
+                    <div class="speed-bar-container">
+                        <div class="speed-bar" id="speed-bar"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- CENTER: Race Ready Message (shows before race starts) -->
+            <div class="center-message" id="center-message">
+                <div class="race-ready">RACE READY</div>
+                <div class="race-subtitle">Answer math problems to boost your speed!</div>
+                <div class="press-space">
+                    Press <span class="key-indicator">SPACE</span> to Boost
+                </div>
+            </div>
+
+            <!-- BOTTOM HUD: Problems | Lap | Boost -->
+            <div class="hud-bottom">
+
+                <!-- Problems Solved -->
+                <div class="problems-display glass-panel">
+                    <div class="problems-icon">🧮</div>
+                    <div class="problems-info">
+                        <div class="problems-value" id="problems-value">7</div>
+                        <div class="problems-label">Problems Solved</div>
+                    </div>
+                </div>
+
+                <!-- Lap Display -->
+                <div class="lap-display glass-panel">
+                    <div class="lap-label">Lap</div>
+                    <div class="lap-value">
+                        <span class="lap-current" id="lap-current">1</span>
+                        <span class="lap-total"> / <span id="lap-total">3</span></span>
+                    </div>
+                </div>
+
+                <!-- Boost Indicator -->
+                <div class="boost-display glass-panel">
+                    <div class="boost-info">
+                        <div class="boost-status" id="boost-status">READY!</div>
+                        <div class="boost-charge-bar">
+                            <div class="boost-charge" id="boost-charge"></div>
+                        </div>
+                    </div>
+                    <div class="boost-icon" id="boost-icon">⚡</div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>
