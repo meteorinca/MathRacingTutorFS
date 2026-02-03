@@ -776,3 +776,496 @@ body {
     color: var(--text-secondary);
     letter-spacing: 2px;
 }
+
+/* ============= MATH PROBLEM MODAL ============= */
+.math-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.math-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.math-modal {
+    position: relative;
+    padding: clamp(20px, 4vw, 40px);
+    min-width: clamp(280px, 60vw, 500px);
+    text-align: center;
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border: 2px solid var(--primary-neon);
+    box-shadow:
+        0 0 30px rgba(0, 212, 255, 0.3),
+        inset 0 0 60px rgba(0, 212, 255, 0.05);
+    overflow: hidden;
+}
+
+.math-modal-overlay.active .math-modal {
+    transform: scale(1) translateY(0);
+}
+
+/* Timer bar at top of modal */
+.math-timer-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 6px;
+    width: 100%;
+    background: linear-gradient(90deg, var(--boost-green), var(--accent-gold), var(--warning-red));
+    transform-origin: left;
+    transition: transform 0.1s linear;
+}
+
+.math-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.math-icon {
+    font-size: clamp(28px, 5vw, 48px);
+    animation: bounce 0.6s ease infinite;
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+.math-title {
+    font-size: clamp(20px, 4vw, 32px);
+    font-weight: 900;
+    font-family: 'Orbitron', monospace;
+    background: linear-gradient(135deg, var(--primary-neon), var(--secondary-neon));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.math-problem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 16px);
+    margin: 24px 0;
+    flex-wrap: wrap;
+}
+
+.math-operand {
+    font-size: clamp(36px, 8vw, 72px);
+    font-weight: 900;
+    font-family: 'Orbitron', monospace;
+    color: var(--text-primary);
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    min-width: 1.5ch;
+    text-align: center;
+}
+
+.math-operand.blank {
+    background: rgba(255, 255, 255, 0.1);
+    border: 3px dashed var(--primary-neon);
+    border-radius: 12px;
+    padding: 4px 12px;
+    min-width: 2ch;
+    color: var(--primary-neon);
+    animation: pulse-border 1s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+
+    0%,
+    100% {
+        border-color: var(--primary-neon);
+    }
+
+    50% {
+        border-color: var(--accent-gold);
+    }
+}
+
+.math-operator,
+.math-equals {
+    font-size: clamp(28px, 6vw, 56px);
+    font-weight: 700;
+    color: var(--secondary-neon);
+}
+
+.math-answer-input {
+    font-size: clamp(36px, 8vw, 72px);
+    font-weight: 900;
+    font-family: 'Orbitron', monospace;
+    width: clamp(80px, 20vw, 150px);
+    padding: 8px 16px;
+    text-align: center;
+    background: rgba(0, 212, 255, 0.1);
+    border: 3px solid var(--primary-neon);
+    border-radius: 12px;
+    color: var(--primary-neon);
+    outline: none;
+    transition: all 0.3s ease;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.math-answer-input::-webkit-outer-spin-button,
+.math-answer-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.math-answer-input:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+.math-answer-input.correct {
+    border-color: var(--boost-green);
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--boost-green);
+    animation: correct-flash 0.5s ease;
+}
+
+.math-answer-input.incorrect {
+    border-color: var(--warning-red);
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--warning-red);
+    animation: shake 0.4s ease;
+}
+
+@keyframes correct-flash {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    20%,
+    60% {
+        transform: translateX(-8px);
+    }
+
+    40%,
+    80% {
+        transform: translateX(8px);
+    }
+}
+
+.math-timer-text {
+    font-size: clamp(16px, 3vw, 24px);
+    font-weight: 700;
+    font-family: 'Orbitron', monospace;
+    color: var(--accent-gold);
+    margin-top: 16px;
+}
+
+.math-timer-text.urgent {
+    color: var(--warning-red);
+    animation: pulse-text 0.3s ease infinite;
+}
+
+@keyframes pulse-text {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+.math-feedback {
+    font-size: clamp(14px, 2.5vw, 20px);
+    font-weight: 700;
+    margin-top: 12px;
+    min-height: 1.5em;
+    color: var(--text-secondary);
+}
+
+.math-feedback.success {
+    color: var(--boost-green);
+}
+
+.math-feedback.fail {
+    color: var(--warning-red);
+}
+
+/* ============= TURBO BOOST EFFECT ============= */
+.player-car.turbo-active {
+    animation: turbo-vibrate 0.05s linear infinite, turbo-glow 0.3s ease-in-out infinite;
+}
+
+.player-car.turbo-active img {
+    filter: drop-shadow(0 0 15px var(--boost-green)) drop-shadow(0 0 30px rgba(34, 197, 94, 0.8)) drop-shadow(0 0 45px rgba(251, 191, 36, 0.5));
+}
+
+@keyframes turbo-vibrate {
+
+    0%,
+    100% {
+        transform: translate3d(var(--car-x, 0), 0, 0) rotate(90deg) translateY(0);
+    }
+
+    25% {
+        transform: translate3d(var(--car-x, 0), 0, 0) rotate(90deg) translateY(-2px);
+    }
+
+    50% {
+        transform: translate3d(var(--car-x, 0), 0, 0) rotate(90deg) translateY(0);
+    }
+
+    75% {
+        transform: translate3d(var(--car-x, 0), 0, 0) rotate(90deg) translateY(2px);
+    }
+}
+
+@keyframes turbo-glow {
+
+    0%,
+    100% {
+        filter: drop-shadow(0 0 15px var(--boost-green)) drop-shadow(0 0 30px rgba(34, 197, 94, 0.8));
+    }
+
+    50% {
+        filter: drop-shadow(0 0 25px var(--boost-green)) drop-shadow(0 0 50px rgba(34, 197, 94, 1)) drop-shadow(0 0 70px rgba(251, 191, 36, 0.6));
+    }
+}
+
+/* Turbo trail effect */
+.player-car.turbo-active::after {
+    content: '';
+    position: absolute;
+    left: -60px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 80px;
+    height: 30px;
+    background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.6), rgba(251, 191, 36, 0.4));
+    border-radius: 50%;
+    filter: blur(8px);
+    animation: trail-pulse 0.2s ease infinite;
+}
+
+@keyframes trail-pulse {
+
+    0%,
+    100% {
+        opacity: 0.8;
+        width: 80px;
+    }
+
+    50% {
+        opacity: 1;
+        width: 100px;
+    }
+}
+
+/* ============= SETTINGS PANEL ============= */
+.settings-toggle {
+    position: absolute;
+    bottom: var(--hud-padding);
+    right: calc(var(--hud-padding) * 8);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.3;
+    transition: all 0.3s ease;
+    z-index: 15;
+}
+
+.settings-toggle:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+.settings-panel {
+    position: absolute;
+    bottom: 60px;
+    right: var(--hud-padding);
+    padding: 20px;
+    min-width: 280px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    z-index: 25;
+}
+
+.settings-panel.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.settings-header {
+    font-size: var(--hud-font-medium);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    text-align: center;
+    font-family: 'Orbitron', monospace;
+}
+
+.settings-group {
+    margin-bottom: 16px;
+}
+
+.settings-label {
+    display: block;
+    font-size: var(--hud-font-small);
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.settings-range {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.range-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: var(--hud-font-small);
+}
+
+.range-input-group input,
+.settings-group>input {
+    width: 60px;
+    padding: 6px 10px;
+    font-size: var(--hud-font-small);
+    font-family: 'Orbitron', monospace;
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid var(--primary-neon);
+    border-radius: 6px;
+    color: var(--primary-neon);
+    text-align: center;
+    outline: none;
+}
+
+.range-separator {
+    color: var(--text-muted);
+}
+
+.settings-save {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    font-size: var(--hud-font-small);
+    font-weight: 700;
+    font-family: 'Orbitron', monospace;
+    background: linear-gradient(180deg, var(--boost-green), #16a34a);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.settings-save:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+}
+
+/* Hide settings in landscape mobile to save space */
+@media (max-height: 500px) {
+    .settings-toggle {
+        width: 30px;
+        height: 30px;
+        font-size: 14px;
+        right: calc(var(--hud-padding) * 6);
+    }
+
+    .settings-panel {
+        min-width: 240px;
+        padding: 12px;
+    }
+}
+
+/* ============= BOOST SUCCESS MODAL OVERLAY ============= */
+.boost-success-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(48px, 12vw, 100px);
+    font-weight: 900;
+    font-family: 'Orbitron', monospace;
+    color: var(--boost-green);
+    text-shadow:
+        0 0 20px var(--boost-green),
+        0 0 40px rgba(34, 197, 94, 0.6),
+        0 0 60px rgba(34, 197, 94, 0.4);
+    z-index: 60;
+    opacity: 0;
+    pointer-events: none;
+    animation: boost-text-pop 1s ease forwards;
+}
+
+@keyframes boost-text-pop {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+    }
+
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+    }
+
+    40% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1) translateY(-30px);
+    }
+}

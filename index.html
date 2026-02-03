@@ -59,6 +59,27 @@
             </div>
         </div>
 
+        <!-- LAYER 2.5: Math Problem Modal Overlay -->
+        <div class="math-modal-overlay" id="math-modal-overlay">
+            <div class="math-modal glass-panel">
+                <div class="math-timer-bar" id="math-timer-bar"></div>
+                <div class="math-modal-header">
+                    <span class="math-icon">🧠</span>
+                    <span class="math-title">SOLVE TO BOOST!</span>
+                </div>
+                <div class="math-problem" id="math-problem">
+                    <span class="math-operand" id="math-operand1">9</span>
+                    <span class="math-operator">×</span>
+                    <span class="math-operand" id="math-operand2">12</span>
+                    <span class="math-equals">=</span>
+                    <input type="number" class="math-answer-input" id="math-answer-input" inputmode="numeric"
+                        pattern="[0-9]*" autocomplete="off" placeholder="?">
+                </div>
+                <div class="math-timer-text" id="math-timer-text">5.0s</div>
+                <div class="math-feedback" id="math-feedback"></div>
+            </div>
+        </div>
+
         <!-- LAYER 3: HUD Overlay -->
         <div class="hud-layer">
 
@@ -135,6 +156,33 @@
                     <div class="boost-icon" id="boost-icon">⚡</div>
                 </div>
 
+            </div>
+
+            <!-- Settings Button (hidden, toggle with 'S' key or triple-tap) -->
+            <button class="settings-toggle" id="settings-toggle" title="Settings">⚙️</button>
+
+            <!-- Settings Panel (hidden by default) -->
+            <div class="settings-panel glass-panel" id="settings-panel">
+                <div class="settings-header">⚙️ Math Settings</div>
+                <div class="settings-group">
+                    <label class="settings-label">Multiplication Range</label>
+                    <div class="settings-range">
+                        <div class="range-input-group">
+                            <span>Min:</span>
+                            <input type="number" id="mult-min" value="3" min="1" max="12">
+                        </div>
+                        <span class="range-separator">to</span>
+                        <div class="range-input-group">
+                            <span>Max:</span>
+                            <input type="number" id="mult-max" value="12" min="1" max="12">
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Problem Interval (seconds)</label>
+                    <input type="number" id="problem-interval" value="8" min="3" max="30">
+                </div>
+                <button class="settings-save" id="settings-save">Save & Close</button>
             </div>
 
         </div>

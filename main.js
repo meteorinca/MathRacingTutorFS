@@ -1,6 +1,6 @@
 /* ============================================
    MATH RACING TUTOR - Game Logic
-   Handles HUD updates, timers, and game state
+   Handles HUD updates, timers, math problems, and game state
    ============================================ */
 
 // ============= Game State =============
@@ -11,11 +11,12 @@ const gameState = {
     totalLaps: 3,
     speed: 156,
     maxSpeed: 200,
-    problemsSolved: 7,
-    boostReady: true,
-    boostCharge: 100,
+    problemsSolved: 0,
+    boostReady: false, // Start with no boost - must earn it
+    boostCharge: 0,
     raceStarted: false,
-    raceInMotion: false, // New: cars only move when this is true
+    raceInMotion: false, // Cars only move when this is true
+    gamePaused: false, // Pause when showing math problem
     raceTime: 0,
     displaySpeed: 0, // Smoothed speed for display
     targetSpeed: 0, // Target speed value
@@ -24,14 +25,26 @@ const gameState = {
 
     // Car race state
     cars: {
-        player: { x: 50, speed: 0, baseSpeed: 2.5, lane: 2 },
+        player: { x: 50, speed: 0, baseSpeed: 2.5, lane: 2, turboActive: false },
         enemy1: { x: 50, speed: 0, baseSpeed: 2.2, lane: 1 },
         enemy2: { x: 50, speed: 0, baseSpeed: 2.3, lane: 3 },
         enemy3: { x: 50, speed: 0, baseSpeed: 2.1, lane: 4 }
     },
     trackLength: 3000, // pixels
     cameraOffset: 0,
-    raceAnimationId: null
+    raceAnimationId: null,
+
+    // Math problem state
+    mathSettings: {
+        minMultiplier: 3,
+        maxMultiplier: 12,
+        problemInterval: 8, // seconds between problems
+        answerTime: 5 // seconds to answer
+    },
+    currentProblem: null,
+    mathTimerId: null,
+    problemTimerId: null,
+    nextProblemTime: null
 };
 
 // ============= DOM Elements =============
@@ -46,11 +59,17 @@ function initializeGame() {
     // Cache DOM elements
     cacheElements();
 
-    // Start HUD updates
-    startHUDUpdates();
+    // Load saved settings
+    loadSettings();
 
     // Setup event listeners
     setupEventListeners();
+
+    // Setup math modal listeners
+    setupMathModalListeners();
+
+    // Setup settings panel
+    setupSettingsPanel();
 
     // Hide loading overlay
     setTimeout(() => {
@@ -60,6 +79,10 @@ function initializeGame() {
 
     // Initialize race (cars at starting positions, not moving yet)
     initializeRace();
+
+    // Reset HUD to initial state (problems solved = 0)
+    updateProblems(0);
+    updateBoost(false, 0);
 }
 
 function cacheElements() {
@@ -98,7 +121,24 @@ function cacheElements() {
         enemyCar3: document.getElementById('enemy-car-3'),
         trackImage: document.getElementById('track-image'),
         startRaceBtn: document.getElementById('start-race-btn'),
-        centerMessage: document.getElementById('center-message')
+        centerMessage: document.getElementById('center-message'),
+
+        // Math modal elements
+        mathModalOverlay: document.getElementById('math-modal-overlay'),
+        mathOperand1: document.getElementById('math-operand1'),
+        mathOperand2: document.getElementById('math-operand2'),
+        mathAnswerInput: document.getElementById('math-answer-input'),
+        mathTimerBar: document.getElementById('math-timer-bar'),
+        mathTimerText: document.getElementById('math-timer-text'),
+        mathFeedback: document.getElementById('math-feedback'),
+
+        // Settings
+        settingsToggle: document.getElementById('settings-toggle'),
+        settingsPanel: document.getElementById('settings-panel'),
+        multMin: document.getElementById('mult-min'),
+        multMax: document.getElementById('mult-max'),
+        problemInterval: document.getElementById('problem-interval'),
+        settingsSave: document.getElementById('settings-save')
     };
 }
 
@@ -122,17 +162,99 @@ function setupEventListeners() {
     }
 }
 
-// ============= HUD Updates =============
-function startHUDUpdates() {
-    // Start the timer
+function setupMathModalListeners() {
+    if (elements.mathAnswerInput) {
+        // Listen for input changes to check answer
+        elements.mathAnswerInput.addEventListener('input', checkMathAnswer);
+
+        // Listen for Enter key
+        elements.mathAnswerInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                checkMathAnswer();
+            }
+        });
+    }
+}
+
+function setupSettingsPanel() {
+    // Toggle settings panel
+    if (elements.settingsToggle) {
+        elements.settingsToggle.addEventListener('click', () => {
+            elements.settingsPanel.classList.toggle('active');
+        });
+    }
+
+    // Save settings
+    if (elements.settingsSave) {
+        elements.settingsSave.addEventListener('click', saveSettings);
+    }
+
+    // Keyboard shortcut to toggle settings (S key)
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 's' || e.key === 'S') {
+            if (!elements.mathModalOverlay?.classList.contains('active')) {
+                elements.settingsPanel?.classList.toggle('active');
+            }
+        }
+    });
+}
+
+function loadSettings() {
+    const saved = localStorage.getItem('mathRacerSettings');
+    if (saved) {
+        try {
+            const settings = JSON.parse(saved);
+            gameState.mathSettings = { ...gameState.mathSettings, ...settings };
+
+            // Update UI
+            if (elements.multMin) elements.multMin.value = gameState.mathSettings.minMultiplier;
+            if (elements.multMax) elements.multMax.value = gameState.mathSettings.maxMultiplier;
+            if (elements.problemInterval) elements.problemInterval.value = gameState.mathSettings.problemInterval;
+        } catch (e) {
+            console.log('Could not load settings:', e);
+        }
+    }
+}
+
+function saveSettings() {
+    const minVal = parseInt(elements.multMin?.value) || 3;
+    const maxVal = parseInt(elements.multMax?.value) || 12;
+    const interval = parseInt(elements.problemInterval?.value) || 8;
+
+    gameState.mathSettings.minMultiplier = Math.max(1, Math.min(12, minVal));
+    gameState.mathSettings.maxMultiplier = Math.max(gameState.mathSettings.minMultiplier, Math.min(12, maxVal));
+    gameState.mathSettings.problemInterval = Math.max(3, Math.min(30, interval));
+
+    // Save to localStorage
+    localStorage.setItem('mathRacerSettings', JSON.stringify(gameState.mathSettings));
+
+    // Update UI values
+    if (elements.multMin) elements.multMin.value = gameState.mathSettings.minMultiplier;
+    if (elements.multMax) elements.multMax.value = gameState.mathSettings.maxMultiplier;
+    if (elements.problemInterval) elements.problemInterval.value = gameState.mathSettings.problemInterval;
+
+    // Close panel
+    elements.settingsPanel?.classList.remove('active');
+
+    console.log('✅ Settings saved:', gameState.mathSettings);
+}
+
+// ============= Timer Updates =============
+let timerIntervalId = null;
+
+function startRaceTimer() {
     gameState.startTime = Date.now();
 
-    // Update timer every 10ms for smooth milliseconds
-    setInterval(updateTimer, 10);
+    // Clear any existing timer
+    if (timerIntervalId) clearInterval(timerIntervalId);
+
+    // Update timer every 10ms for smooth display
+    timerIntervalId = setInterval(updateTimer, 10);
 }
 
 function updateTimer() {
-    if (!gameState.startTime) return;
+    if (!gameState.startTime || gameState.gamePaused) return;
 
     const elapsed = Date.now() - gameState.startTime;
     const minutes = Math.floor(elapsed / 60000);
@@ -231,6 +353,11 @@ function updateBoost(ready, charge) {
 
 // ============= Event Handlers =============
 function handleKeyDown(e) {
+    // If math modal is open, let the input handle keypresses
+    if (elements.mathModalOverlay?.classList.contains('active')) {
+        return;
+    }
+
     switch (e.code) {
         case 'Space':
         case 'Enter':
@@ -238,60 +365,292 @@ function handleKeyDown(e) {
             if (!gameState.raceInMotion) {
                 startRace();
             } else if (gameState.boostReady) {
-                activateBoost();
+                activateTurboBoost();
             }
             e.preventDefault();
             break;
         case 'Escape':
-            // Pause game
-            togglePause();
+            // Close settings if open
+            elements.settingsPanel?.classList.remove('active');
             break;
     }
 }
 
 function handleTouch(e) {
-    // Double-tap to boost
-    // Could add more touch controls here
+    // Double-tap could boost in future
 }
 
 function handleResize() {
-    // Re-adjust any dynamic sizing if needed
     console.log('Viewport resized:', window.innerWidth, 'x', window.innerHeight);
 }
 
-// ============= Game Actions =============
-function activateBoost() {
-    if (!gameState.boostReady) return;
+// ============= Math Problem System =============
+function generateMathProblem() {
+    const { minMultiplier, maxMultiplier } = gameState.mathSettings;
 
-    // Use boost
-    gameState.boostReady = false;
-    gameState.boostCharge = 0;
+    // Generate two random numbers within range
+    const num1 = Math.floor(Math.random() * (maxMultiplier - minMultiplier + 1)) + minMultiplier;
+    const num2 = Math.floor(Math.random() * (maxMultiplier - minMultiplier + 1)) + minMultiplier;
+    const answer = num1 * num2;
 
-    // Temporarily increase speed
-    const originalSpeed = gameState.speed;
-    updateSpeed(gameState.maxSpeed);
-    updateBoost(false, 0);
+    // Randomly decide problem type: 0 = answer blank, 1 = first operand blank, 2 = second operand blank
+    const problemType = Math.random() < 0.7 ? 0 : (Math.random() < 0.5 ? 1 : 2);
 
-    // Recharge boost over 5 seconds
-    let rechargeProgress = 0;
-    const rechargeInterval = setInterval(() => {
-        rechargeProgress += 2;
-        updateBoost(false, rechargeProgress);
+    let problem = {
+        num1: num1,
+        num2: num2,
+        answer: answer,
+        type: problemType,
+        userAnswer: null
+    };
 
-        if (rechargeProgress >= 100) {
-            clearInterval(rechargeInterval);
-            updateBoost(true, 100);
-        }
-    }, 100);
+    // What the user needs to find
+    switch (problemType) {
+        case 0: // 9 × 12 = ___
+            problem.blankValue = answer;
+            problem.display = { op1: num1, op2: num2, blankPosition: 'answer' };
+            break;
+        case 1: // ___ × 12 = 108
+            problem.blankValue = num1;
+            problem.display = { op1: '?', op2: num2, blankPosition: 'op1', showAnswer: answer };
+            break;
+        case 2: // 9 × ___ = 108
+            problem.blankValue = num2;
+            problem.display = { op1: num1, op2: '?', blankPosition: 'op2', showAnswer: answer };
+            break;
+    }
 
-    // Return to normal speed after 2 seconds
-    setTimeout(() => {
-        updateSpeed(originalSpeed);
-    }, 2000);
+    return problem;
 }
 
+function showMathProblem() {
+    // Don't show if race isn't in motion
+    if (!gameState.raceInMotion) return;
+
+    // Generate new problem
+    gameState.currentProblem = generateMathProblem();
+    const problem = gameState.currentProblem;
+
+    // Update modal display based on problem type
+    if (problem.type === 0) {
+        // Standard: 9 × 12 = ___
+        elements.mathOperand1.textContent = problem.num1;
+        elements.mathOperand1.classList.remove('blank');
+        elements.mathOperand2.textContent = problem.num2;
+        elements.mathOperand2.classList.remove('blank');
+    } else if (problem.type === 1) {
+        // ___ × 12 = 108
+        elements.mathOperand1.textContent = '?';
+        elements.mathOperand1.classList.add('blank');
+        elements.mathOperand2.textContent = problem.num2;
+        elements.mathOperand2.classList.remove('blank');
+    } else {
+        // 9 × ___ = 108
+        elements.mathOperand1.textContent = problem.num1;
+        elements.mathOperand1.classList.remove('blank');
+        elements.mathOperand2.textContent = '?';
+        elements.mathOperand2.classList.add('blank');
+    }
+
+    // Clear input and feedback
+    elements.mathAnswerInput.value = '';
+    elements.mathAnswerInput.classList.remove('correct', 'incorrect');
+    elements.mathFeedback.textContent = problem.type !== 0 ? `= ${problem.display.showAnswer}` : '';
+    elements.mathFeedback.className = 'math-feedback';
+
+    // Reset timer bar
+    elements.mathTimerBar.style.transform = 'scaleX(1)';
+    elements.mathTimerText.textContent = `${gameState.mathSettings.answerTime}.0s`;
+    elements.mathTimerText.classList.remove('urgent');
+
+    // Show modal
+    elements.mathModalOverlay.classList.add('active');
+
+    // Pause the game
+    gameState.gamePaused = true;
+
+    // Focus input
+    setTimeout(() => {
+        elements.mathAnswerInput.focus();
+    }, 100);
+
+    // Start countdown timer
+    startMathTimer();
+}
+
+function startMathTimer() {
+    const totalTime = gameState.mathSettings.answerTime * 1000; // Convert to ms
+    const startTime = Date.now();
+
+    // Clear any existing timer
+    if (gameState.mathTimerId) {
+        clearInterval(gameState.mathTimerId);
+    }
+
+    gameState.mathTimerId = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, totalTime - elapsed);
+        const fraction = remaining / totalTime;
+
+        // Update timer bar
+        elements.mathTimerBar.style.transform = `scaleX(${fraction})`;
+
+        // Update timer text
+        const secondsLeft = (remaining / 1000).toFixed(1);
+        elements.mathTimerText.textContent = `${secondsLeft}s`;
+
+        // Add urgent class when low on time
+        if (remaining < 2000) {
+            elements.mathTimerText.classList.add('urgent');
+        }
+
+        // Time's up!
+        if (remaining <= 0) {
+            clearInterval(gameState.mathTimerId);
+            handleTimeUp();
+        }
+    }, 50);
+}
+
+function checkMathAnswer() {
+    if (!gameState.currentProblem) return;
+
+    const userAnswer = parseInt(elements.mathAnswerInput.value);
+    if (isNaN(userAnswer)) return;
+
+    const correctAnswer = gameState.currentProblem.blankValue;
+
+    if (userAnswer === correctAnswer) {
+        // Correct answer!
+        clearInterval(gameState.mathTimerId);
+        handleCorrectAnswer();
+    } else if (elements.mathAnswerInput.value.length >= correctAnswer.toString().length) {
+        // Wrong answer (only show feedback if they've typed enough digits)
+        elements.mathAnswerInput.classList.add('incorrect');
+        setTimeout(() => {
+            elements.mathAnswerInput.classList.remove('incorrect');
+        }, 400);
+    }
+}
+
+function handleCorrectAnswer() {
+    // Show success feedback
+    elements.mathAnswerInput.classList.add('correct');
+    elements.mathFeedback.textContent = '🎉 BOOST EARNED!';
+    elements.mathFeedback.className = 'math-feedback success';
+
+    // Update problems solved
+    updateProblems(gameState.problemsSolved + 1);
+
+    // Close modal after brief delay
+    setTimeout(() => {
+        hideMathModal();
+        activateTurboBoost();
+    }, 600);
+}
+
+function handleTimeUp() {
+    // Show failure feedback
+    elements.mathFeedback.textContent = '⏰ Time\'s up!';
+    elements.mathFeedback.className = 'math-feedback fail';
+    elements.mathAnswerInput.classList.add('incorrect');
+
+    // Show correct answer
+    setTimeout(() => {
+        elements.mathFeedback.textContent = `Answer: ${gameState.currentProblem.blankValue}`;
+    }, 500);
+
+    // Close modal after delay
+    setTimeout(() => {
+        hideMathModal();
+        scheduleNextProblem();
+    }, 1500);
+}
+
+function hideMathModal() {
+    elements.mathModalOverlay.classList.remove('active');
+    gameState.gamePaused = false;
+    gameState.currentProblem = null;
+}
+
+function scheduleNextProblem() {
+    // Clear any existing scheduled problem
+    if (gameState.problemTimerId) {
+        clearTimeout(gameState.problemTimerId);
+    }
+
+    // Schedule next problem
+    const delay = gameState.mathSettings.problemInterval * 1000;
+    gameState.problemTimerId = setTimeout(() => {
+        if (gameState.raceInMotion && !gameState.gamePaused) {
+            showMathProblem();
+        }
+    }, delay);
+}
+
+// ============= Turbo Boost System =============
+function activateTurboBoost() {
+    if (gameState.cars.player.turboActive) return; // Already boosting
+
+    console.log('🚀 TURBO BOOST ACTIVATED!');
+
+    // Mark turbo as active
+    gameState.cars.player.turboActive = true;
+    const originalBaseSpeed = gameState.cars.player.baseSpeed;
+
+    // Switch to turbo car image
+    const playerCarImg = elements.playerCar?.querySelector('img');
+    if (playerCarImg) {
+        playerCarImg.src = 'dist/assets/racing/player_turbocar.png';
+    }
+
+    // Add turbo visual effects
+    elements.playerCar?.classList.add('turbo-active');
+
+    // Show boost text popup
+    showBoostPopup();
+
+    // Dramatically increase speed
+    gameState.cars.player.baseSpeed = originalBaseSpeed * 2.5;
+
+    // Update boost HUD
+    updateBoost(false, 0);
+
+    // Turbo duration: 3 seconds
+    setTimeout(() => {
+        // End turbo
+        gameState.cars.player.turboActive = false;
+        gameState.cars.player.baseSpeed = originalBaseSpeed;
+
+        // Switch back to normal car
+        if (playerCarImg) {
+            playerCarImg.src = 'dist/assets/racing/player_car.png';
+        }
+
+        // Remove turbo effects
+        elements.playerCar?.classList.remove('turbo-active');
+
+        // Schedule next math problem
+        scheduleNextProblem();
+
+    }, 3000);
+}
+
+function showBoostPopup() {
+    // Create and show boost text
+    const popup = document.createElement('div');
+    popup.className = 'boost-success-overlay';
+    popup.textContent = '⚡ BOOST!';
+    document.body.appendChild(popup);
+
+    // Remove after animation
+    setTimeout(() => {
+        popup.remove();
+    }, 1000);
+}
+
+// ============= Game Actions =============
 function togglePause() {
-    // Placeholder for pause functionality
     console.log('Game paused/resumed');
 }
 
@@ -322,13 +681,20 @@ function startRace() {
         }, 500);
     }
 
-    // Reset timer
-    gameState.startTime = Date.now();
+    // Start race timer NOW (after pressing start)
+    startRaceTimer();
 
     // Start the cars moving!
     gameState.raceInMotion = true;
 
     console.log('🏁 Race Started!');
+
+    // Schedule first math problem after a few seconds
+    setTimeout(() => {
+        if (gameState.raceInMotion) {
+            showMathProblem();
+        }
+    }, gameState.mathSettings.problemInterval * 1000);
 }
 
 let lastFrameTime = 0;
@@ -359,8 +725,10 @@ function raceLoop(currentTime) {
     const deltaTime = (currentTime - lastFrameTime) / 16.67; // Normalize to ~60fps
     lastFrameTime = currentTime;
 
-    // Update car positions
-    updateCarMovement(deltaTime);
+    // Update car positions (unless game is paused)
+    if (!gameState.gamePaused) {
+        updateCarMovement(deltaTime);
+    }
 
     // Update camera to follow player
     updateCamera();
@@ -369,10 +737,10 @@ function raceLoop(currentTime) {
     updateRacePositions();
 
     // Update speed display based on player speed (smoothed)
-    if (gameState.raceInMotion) {
+    if (gameState.raceInMotion && !gameState.gamePaused) {
         const playerSpeedMPH = Math.round(gameState.cars.player.speed * 50);
         updateSpeed(playerSpeedMPH);
-    } else {
+    } else if (!gameState.raceInMotion) {
         updateSpeed(0); // Cars not moving yet
     }
     smoothSpeedUpdate(); // Apply smooth interpolation
@@ -382,8 +750,8 @@ function raceLoop(currentTime) {
 }
 
 function updateCarMovement(deltaTime) {
-    // Don't move cars if race hasn't started
-    if (!gameState.raceInMotion) {
+    // Don't move cars if race hasn't started or game is paused
+    if (!gameState.raceInMotion || gameState.gamePaused) {
         updateCarPositions();
         return;
     }
@@ -421,7 +789,11 @@ function updateCarPositions() {
     // Round to whole pixels to prevent sub-pixel rendering issues
     if (elements.playerCar) {
         const x = Math.round(cars.player.x);
-        elements.playerCar.style.transform = `translate3d(${x}px, 0, 0) rotate(90deg)`;
+        // Store x for CSS animation to use
+        elements.playerCar.style.setProperty('--car-x', `${x}px`);
+        if (!cars.player.turboActive) {
+            elements.playerCar.style.transform = `translate3d(${x}px, 0, 0) rotate(90deg)`;
+        }
     }
     if (elements.enemyCar1) {
         const x = Math.round(cars.enemy1.x);
@@ -440,7 +812,6 @@ function updateCarPositions() {
 function updateCamera() {
     const playerX = gameState.cars.player.x;
     const viewportWidth = window.innerWidth;
-    const carWidth = 80;
 
     // Keep player car roughly 30% from the left of the screen
     const targetOffset = playerX - (viewportWidth * 0.3);
@@ -490,7 +861,6 @@ function resetRace() {
         // Race complete - restart from lap 1
         gameState.currentLap = 1;
         updateLap(1, gameState.totalLaps);
-        updateProblems(gameState.problemsSolved + 1); // Add to problems solved for demo
     }
 
     // Reset car positions
