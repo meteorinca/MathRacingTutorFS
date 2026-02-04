@@ -1,0 +1,145 @@
+====================================================
+MATH RACING TUTOR - AUDIO ASSET REQUIREMENTS
+====================================================
+
+Place audio files in this folder (dist/assets/audio/).
+The game will automatically use them if found, otherwise
+it will fall back to synthesized sounds.
+
+Supported formats: MP3, OGG, WAV (MP3 preferred for compatibility)
+
+====================================================
+SOUND EFFECTS (Short audio clips)
+====================================================
+
+1. click.mp3
+   - Description: Button click / UI interaction sound
+   - Length: 0.1 - 0.2 seconds
+   - Style: Short blip, satisfying click, arcade button press
+   - Example: "blip", "pop", "tap"
+
+2. correct.mp3
+   - Description: Correct answer celebration
+   - Length: 0.3 - 0.5 seconds
+   - Style: Ascending tones, cheerful, rewarding
+   - Example: "ding ding ding!", coin collect sound, level up
+
+3. wrong.mp3
+   - Description: Wrong answer / time's up
+   - Length: 0.2 - 0.4 seconds
+   - Style: Descending tones, buzzer, not too harsh (kid-friendly)
+   - Example: Soft buzzer, "bonk", error beep
+
+4. boost.mp3
+   - Description: Turbo boost activation
+   - Length: 0.5 - 1.0 seconds
+   - Style: Whoosh, acceleration, power-up feel
+   - Example: Rocket ignition, speed boost, nitro activation
+
+5. countdown.mp3
+   - Description: Race countdown beep (3, 2, 1)
+   - Length: 0.2 - 0.3 seconds
+   - Style: Simple beep, countdown tone
+   - Example: "beep" for each count
+
+6. countdown_go.mp3
+   - Description: Race start "GO!" sound
+   - Length: 0.3 - 0.5 seconds
+   - Style: Higher pitch than countdown, exciting, starting horn
+   - Example: Air horn, race start signal, "GO!" announcement
+
+7. lap.mp3
+   - Description: Lap completion / checkpoint
+   - Length: 0.3 - 0.6 seconds
+   - Style: Victory chord, checkpoint ding, progress sound
+   - Example: Checkpoint chime, lap bell, flag wave
+
+8. win.mp3
+   - Description: Race victory fanfare
+   - Length: 1.0 - 2.0 seconds
+   - Style: Triumphant, celebratory, kids cheering optional
+   - Example: Victory fanfare, trophy sound, confetti pop
+
+9. lose.mp3
+   - Description: Race loss sound
+   - Length: 0.5 - 1.0 seconds
+   - Style: Sad trombone, deflating, but not discouraging
+   - Example: "wah wah wah", soft failure sound
+
+====================================================
+BACKGROUND MUSIC (Looping tracks)
+====================================================
+
+10. music_menu.mp3
+    - Description: Menu / pre-race background music
+    - Length: 30-60 seconds (will loop)
+    - Style: Upbeat, anticipatory, fun, not too intense
+    - BPM: 100-120
+    - Example: Arcade lobby music, racing game menu theme
+
+11. music_race.mp3
+    - Description: In-race background music
+    - Length: 60-120 seconds (will loop)
+    - Style: Fast-paced, exciting, driving rhythm, energetic
+    - BPM: 130-160
+    - Example: Racing game action music, chase scene music
+
+12. music_victory.mp3
+    - Description: Victory screen music
+    - Length: 15-30 seconds (can loop or fade)
+    - Style: Celebratory, triumphant, uplifting
+    - Example: Podium music, winner theme
+
+====================================================
+ENGINE SOUNDS (Optional, for immersion)
+====================================================
+
+13. engine_idle.mp3
+    - Description: Car engine idle loop
+    - Length: 2-5 seconds (seamless loop)
+    - Style: Low rumble, racing car idle
+    - Note: Will be pitch-shifted based on speed
+
+14. engine_rev.mp3
+    - Description: Engine acceleration
+    - Length: 1-2 seconds
+    - Style: Engine revving up
+    - Note: Played during boost
+
+====================================================
+NOTES FOR AUDIO CREATION
+====================================================
+
+- All sounds should be KID-FRIENDLY and not scary/harsh
+- Keep file sizes small for fast loading (< 500KB each for SFX)
+- Music can be larger but aim for < 2MB each
+- Ensure proper licensing for any sourced audio
+- Test on mobile devices for volume balance
+- MP3 at 128kbps is sufficient for sound effects
+- MP3 at 192kbps recommended for music
+
+====================================================
+FILE CHECKLIST
+====================================================
+
+Sound Effects:
+[ ] click.mp3
+[ ] correct.mp3
+[ ] wrong.mp3
+[ ] boost.mp3
+[ ] countdown.mp3
+[ ] countdown_go.mp3
+[ ] lap.mp3
+[ ] win.mp3
+[ ] lose.mp3
+
+Music:
+[ ] music_menu.mp3
+[ ] music_race.mp3
+[ ] music_victory.mp3
+
+Optional:
+[ ] engine_idle.mp3
+[ ] engine_rev.mp3
+
+====================================================

@@ -74,14 +74,20 @@
                     <span class="math-title">SOLVE TO BOOST!</span>
                 </div>
                 <div class="math-problem" id="math-problem">
-                    <span class="math-operand" id="math-operand1">9</span>
+                    <!-- Type 0: num × num = [INPUT] -->
+                    <!-- Type 1: [INPUT] × num = answer -->
+                    <!-- Type 2: num × [INPUT] = answer -->
+                    <span class="math-element" id="math-slot-1">9</span>
                     <span class="math-operator">×</span>
-                    <span class="math-operand" id="math-operand2">12</span>
+                    <span class="math-element" id="math-slot-2">12</span>
                     <span class="math-equals">=</span>
+                    <span class="math-element" id="math-slot-3">?</span>
+                </div>
+                <div class="math-input-container">
                     <input type="number" class="math-answer-input" id="math-answer-input" inputmode="numeric"
                         pattern="[0-9]*" autocomplete="off" placeholder="?">
                 </div>
-                <div class="math-timer-text" id="math-timer-text">5.0s</div>
+                <div class="math-timer-text" id="math-timer-text">8.0s</div>
                 <div class="math-feedback" id="math-feedback"></div>
             </div>
         </div>

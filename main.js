@@ -6,39 +6,78 @@
 // ============= Sound System =============
 const SoundManager = {
     sounds: {},
+    audioFiles: {}, // Cache for loaded audio files
     musicPlaying: false,
     enabled: true,
+    audioBasePath: 'dist/assets/audio/',
+
+    // Map of sound names to file names
+    fileMap: {
+        click: 'click.mp3',
+        correct: 'correct.mp3',
+        wrong: 'wrong.mp3',
+        boost: 'boost.mp3',
+        countdown: 'countdown.mp3',
+        countdownGo: 'countdown_go.mp3',
+        lap: 'lap.mp3',
+        win: 'win.mp3',
+        lose: 'lose.mp3',
+        musicMenu: 'music_menu.mp3',
+        musicRace: 'music_race.mp3',
+        musicVictory: 'music_victory.mp3'
+    },
 
     // Initialize all sounds
     init() {
-        // Create audio context for Web Audio API sounds
         this.audioContext = null;
 
-        // Define sound URLs (using free sound effects - base64 embedded or URLs)
+        // Define fallback synthesized sounds
         this.soundDefs = {
-            // Button clicks - short blip sound
             click: { freq: 800, duration: 0.1, type: 'square' },
-            // Correct answer - ascending tone
             correct: { freq: [400, 600, 800], duration: 0.15, type: 'sine' },
-            // Wrong answer - descending tone
             wrong: { freq: [400, 200], duration: 0.2, type: 'sawtooth' },
-            // Boost activation - whoosh
             boost: { freq: [200, 800, 1200], duration: 0.3, type: 'sawtooth' },
-            // Race start - beeps
             countdown: { freq: 440, duration: 0.2, type: 'square' },
             countdownGo: { freq: 880, duration: 0.4, type: 'square' },
-            // Lap complete
             lap: { freq: [523, 659, 784], duration: 0.2, type: 'sine' },
-            // Win fanfare
             win: { freq: [523, 659, 784, 1047], duration: 0.25, type: 'sine' },
-            // Lose sound
             lose: { freq: [400, 300, 200], duration: 0.3, type: 'sawtooth' }
         };
+
+        // Preload audio files (non-blocking)
+        this.preloadAudioFiles();
 
         console.log('🔊 Sound system initialized');
     },
 
-    // Get or create audio context (must be after user interaction)
+    // Preload audio files if they exist
+    async preloadAudioFiles() {
+        for (const [name, file] of Object.entries(this.fileMap)) {
+            try {
+                const audio = new Audio();
+                audio.src = this.audioBasePath + file;
+
+                // Check if file loads successfully
+                await new Promise((resolve, reject) => {
+                    audio.oncanplaythrough = () => {
+                        this.audioFiles[name] = audio;
+                        console.log(`✅ Loaded audio: ${file}`);
+                        resolve();
+                    };
+                    audio.onerror = () => {
+                        // File doesn't exist, will use synthesized fallback
+                        resolve();
+                    };
+                    // Timeout after 2 seconds
+                    setTimeout(resolve, 2000);
+                });
+            } catch (e) {
+                // Silently fail, will use synthesized sound
+            }
+        }
+    },
+
+    // Get or create audio context
     getContext() {
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -49,10 +88,28 @@ const SoundManager = {
         return this.audioContext;
     },
 
-    // Play a synthesized sound
+    // Play a sound (file if available, otherwise synthesized)
     play(soundName) {
         if (!this.enabled) return;
 
+        // Try to play audio file first
+        if (this.audioFiles[soundName]) {
+            try {
+                const audio = this.audioFiles[soundName].cloneNode();
+                audio.volume = 0.5;
+                audio.play().catch(() => { });
+                return;
+            } catch (e) {
+                // Fall back to synthesized
+            }
+        }
+
+        // Fall back to synthesized sound
+        this.playSynthesized(soundName);
+    },
+
+    // Play synthesized sound
+    playSynthesized(soundName) {
         const def = this.soundDefs[soundName];
         if (!def) return;
 
@@ -78,6 +135,33 @@ const SoundManager = {
             });
         } catch (e) {
             console.log('Sound play error:', e);
+        }
+    },
+
+    // Play background music
+    playMusic(trackName) {
+        if (!this.enabled) return;
+
+        // Stop current music
+        this.stopMusic();
+
+        if (this.audioFiles[trackName]) {
+            try {
+                this.currentMusic = this.audioFiles[trackName].cloneNode();
+                this.currentMusic.loop = true;
+                this.currentMusic.volume = 0.3;
+                this.currentMusic.play().catch(() => { });
+                this.musicPlaying = true;
+            } catch (e) { }
+        }
+    },
+
+    // Stop music
+    stopMusic() {
+        if (this.currentMusic) {
+            this.currentMusic.pause();
+            this.currentMusic = null;
+            this.musicPlaying = false;
         }
     },
 
@@ -126,6 +210,7 @@ const SoundManager = {
         this.enabled = enabled;
         if (!enabled) {
             this.stopEngineSound();
+            this.stopMusic();
         }
     }
 };
@@ -262,10 +347,11 @@ function cacheElements() {
         centerMessage: document.getElementById('center-message'),
         finishLine: document.getElementById('finish-line'),
 
-        // Math modal elements
+        // Math modal elements (new slot-based structure)
         mathModalOverlay: document.getElementById('math-modal-overlay'),
-        mathOperand1: document.getElementById('math-operand1'),
-        mathOperand2: document.getElementById('math-operand2'),
+        mathSlot1: document.getElementById('math-slot-1'),
+        mathSlot2: document.getElementById('math-slot-2'),
+        mathSlot3: document.getElementById('math-slot-3'),
         mathAnswerInput: document.getElementById('math-answer-input'),
         mathTimerBar: document.getElementById('math-timer-bar'),
         mathTimerText: document.getElementById('math-timer-text'),
@@ -602,28 +688,42 @@ function showMathProblem() {
     gameState.currentProblem = generateMathProblem();
     const problem = gameState.currentProblem;
 
-    // Update modal display
+    // Reset all slots to default state
+    elements.mathSlot1.classList.remove('blank', 'answer');
+    elements.mathSlot2.classList.remove('blank', 'answer');
+    elements.mathSlot3.classList.remove('blank', 'answer');
+
+    // Update display based on problem type
+    // Type 0: num1 × num2 = [blank] → user types answer
+    // Type 1: [blank] × num2 = answer → user types first operand
+    // Type 2: num1 × [blank] = answer → user types second operand
+
     if (problem.type === 0) {
-        elements.mathOperand1.textContent = problem.num1;
-        elements.mathOperand1.classList.remove('blank');
-        elements.mathOperand2.textContent = problem.num2;
-        elements.mathOperand2.classList.remove('blank');
+        // Standard: 9 × 12 = ?
+        elements.mathSlot1.textContent = problem.num1;
+        elements.mathSlot2.textContent = problem.num2;
+        elements.mathSlot3.textContent = '?';
+        elements.mathSlot3.classList.add('blank');
     } else if (problem.type === 1) {
-        elements.mathOperand1.textContent = '?';
-        elements.mathOperand1.classList.add('blank');
-        elements.mathOperand2.textContent = problem.num2;
-        elements.mathOperand2.classList.remove('blank');
+        // Missing first operand: ? × 12 = 108
+        elements.mathSlot1.textContent = '?';
+        elements.mathSlot1.classList.add('blank');
+        elements.mathSlot2.textContent = problem.num2;
+        elements.mathSlot3.textContent = problem.answer;
+        elements.mathSlot3.classList.add('answer');
     } else {
-        elements.mathOperand1.textContent = problem.num1;
-        elements.mathOperand1.classList.remove('blank');
-        elements.mathOperand2.textContent = '?';
-        elements.mathOperand2.classList.add('blank');
+        // Missing second operand: 9 × ? = 108
+        elements.mathSlot1.textContent = problem.num1;
+        elements.mathSlot2.textContent = '?';
+        elements.mathSlot2.classList.add('blank');
+        elements.mathSlot3.textContent = problem.answer;
+        elements.mathSlot3.classList.add('answer');
     }
 
     // Clear input and feedback
     elements.mathAnswerInput.value = '';
     elements.mathAnswerInput.classList.remove('correct', 'incorrect');
-    elements.mathFeedback.textContent = problem.type !== 0 ? `= ${problem.display.showAnswer}` : '';
+    elements.mathFeedback.textContent = '';
     elements.mathFeedback.className = 'math-feedback';
 
     // Reset timer bar with configurable time
