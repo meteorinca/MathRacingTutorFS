@@ -24,7 +24,8 @@ const SoundManager = {
         lose: 'lose.mp3',
         musicMenu: 'music_menu.mp3',
         musicRace: 'music_race.mp3',
-        musicVictory: 'music_victory.mp3'
+        musicVictory: 'music_victory.mp3',
+        engineIdle: 'engine_idle.mp3'
     },
 
     // Initialize all sounds
@@ -150,9 +151,16 @@ const SoundManager = {
                 this.currentMusic = this.audioFiles[trackName].cloneNode();
                 this.currentMusic.loop = true;
                 this.currentMusic.volume = 0.3;
-                this.currentMusic.play().catch(() => { });
+                this.currentMusic.play().catch((e) => {
+                    console.log('Music play failed (user interaction may be required):', e);
+                });
                 this.musicPlaying = true;
-            } catch (e) { }
+                console.log(`🎵 Playing music: ${trackName}`);
+            } catch (e) {
+                console.log('Music error:', e);
+            }
+        } else {
+            console.log(`🎵 Music file not loaded: ${trackName}`);
         }
     },
 
@@ -160,8 +168,47 @@ const SoundManager = {
     stopMusic() {
         if (this.currentMusic) {
             this.currentMusic.pause();
+            this.currentMusic.currentTime = 0;
             this.currentMusic = null;
             this.musicPlaying = false;
+            console.log('🎵 Music stopped');
+        }
+    },
+
+    // Play engine idle sound (only 7-11s portion which is loudest)
+    playEngineIdle() {
+        if (!this.enabled) return;
+
+        this.stopEngineIdle();
+
+        if (this.audioFiles['engineIdle']) {
+            try {
+                this.engineIdleAudio = this.audioFiles['engineIdle'].cloneNode();
+                this.engineIdleAudio.currentTime = 7; // Start at 7 seconds
+                this.engineIdleAudio.volume = 0.4;
+                this.engineIdleAudio.loop = false;
+                this.engineIdleAudio.play().catch(() => { });
+
+                // Stop at 11 seconds (4 second duration)
+                this.engineIdleTimeout = setTimeout(() => {
+                    this.stopEngineIdle();
+                }, 4000);
+                console.log('🔊 Engine idle playing (7s-11s)');
+            } catch (e) {
+                console.log('Engine idle error:', e);
+            }
+        }
+    },
+
+    // Stop engine idle sound
+    stopEngineIdle() {
+        if (this.engineIdleAudio) {
+            this.engineIdleAudio.pause();
+            this.engineIdleAudio = null;
+        }
+        if (this.engineIdleTimeout) {
+            clearTimeout(this.engineIdleTimeout);
+            this.engineIdleTimeout = null;
         }
     },
 
@@ -255,8 +302,8 @@ const gameState = {
     mathSettings: {
         minMultiplier: 3,
         maxMultiplier: 12,
-        problemInterval: 8,
-        answerTime: 8, // Changed default to 8 seconds
+        problemInterval: 3, // Changed to 3 seconds between problems
+        answerTime: 8, // 8 seconds to answer
         numLaps: 3,
         soundEnabled: true
     },
@@ -306,6 +353,11 @@ function initializeGame() {
     updateProblems(0);
     updateBoost(false, 0);
     updateLap(1, gameState.mathSettings.numLaps);
+
+    // Start menu music after a short delay (requires user interaction first on some browsers)
+    setTimeout(() => {
+        SoundManager.playMusic('musicMenu');
+    }, 1000);
 }
 
 function cacheElements() {
@@ -898,9 +950,17 @@ function showRaceResult(won) {
     // Stop the race
     gameState.raceInMotion = false;
     SoundManager.stopEngineSound();
+    SoundManager.stopEngineIdle();
+
+    // Stop race music and play appropriate sound/music
+    SoundManager.stopMusic();
 
     if (won) {
         SoundManager.play('win');
+        // Play victory music
+        setTimeout(() => {
+            SoundManager.playMusic('musicVictory');
+        }, 500);
     } else {
         SoundManager.play('lose');
     }
@@ -928,6 +988,7 @@ function showRaceResult(won) {
     btn.textContent = '🏁 RACE AGAIN';
     btn.onclick = () => {
         SoundManager.play('click');
+        SoundManager.stopMusic();
         overlay.remove();
         resetFullRace();
     };
@@ -976,6 +1037,9 @@ function resetFullRace() {
 
     // Reinitialize race
     initializeRace();
+
+    // Restart menu music
+    SoundManager.playMusic('musicMenu');
 }
 
 // ============= Race Simulation =============
@@ -1001,6 +1065,10 @@ function positionFinishLine() {
 
 function startRace() {
     if (gameState.raceInMotion) return;
+    if (gameState.countdownInProgress) return;
+
+    // Mark countdown in progress to prevent double-starts
+    gameState.countdownInProgress = true;
 
     // Hide the start button and message
     if (elements.startRaceBtn) {
@@ -1014,14 +1082,67 @@ function startRace() {
         }, 500);
     }
 
-    // Play countdown
+    // Stop menu music
+    SoundManager.stopMusic();
+
+    // Play countdown sound (4 seconds of countdown.mp3)
     SoundManager.play('countdown');
+
+    // Play engine idle sound (7s-11s portion) during countdown
+    SoundManager.playEngineIdle();
+
+    // Create countdown overlay
+    const countdownOverlay = document.createElement('div');
+    countdownOverlay.className = 'countdown-overlay';
+    countdownOverlay.id = 'countdown-overlay';
+    document.body.appendChild(countdownOverlay);
+
+    // Countdown sequence: 3, 2, 1, GO!
+    const countdownNumbers = ['3', '2', '1', 'GO!'];
+    let countIndex = 0;
+
+    function showCountdownNumber() {
+        if (countIndex < countdownNumbers.length) {
+            countdownOverlay.textContent = countdownNumbers[countIndex];
+            countdownOverlay.classList.add('active');
+
+            // Add special class for "GO!"
+            if (countdownNumbers[countIndex] === 'GO!') {
+                countdownOverlay.classList.add('go');
+                SoundManager.play('countdownGo');
+            }
+
+            countIndex++;
+
+            if (countIndex < countdownNumbers.length) {
+                setTimeout(showCountdownNumber, 1000);
+            } else {
+                // After "GO!" - start the actual race
+                setTimeout(() => {
+                    countdownOverlay.remove();
+                    actuallyStartRace();
+                }, 500);
+            }
+        }
+    }
+
+    // Start showing countdown after a brief moment
+    setTimeout(showCountdownNumber, 500);
+}
+
+function actuallyStartRace() {
+    // Clear countdown flag
+    gameState.countdownInProgress = false;
 
     // Start race timer
     startRaceTimer();
 
     // Start engine sound
     SoundManager.startEngineSound();
+    SoundManager.stopEngineIdle();
+
+    // Start race music
+    SoundManager.playMusic('musicRace');
 
     // Start the cars moving!
     gameState.raceInMotion = true;
@@ -1029,12 +1150,12 @@ function startRace() {
 
     console.log('🏁 Race Started!');
 
-    // Schedule first math problem
+    // Show first math problem IMMEDIATELY
     setTimeout(() => {
         if (gameState.raceInMotion) {
             showMathProblem();
         }
-    }, gameState.mathSettings.problemInterval * 1000);
+    }, 100); // Near-immediate first problem
 }
 
 let lastFrameTime = 0;
